@@ -1,0 +1,102 @@
+# ============================================================
+# GameLogic 服务 - 本地开发配置
+# 优先级: 环境变量 > 此文件 > 代码默认值
+# ============================================================
+# [ENV] 标记 = 生产环境必须通过环境变量传入，禁止写入配置文件
+# [BASE] 标记 = 由 LoadBase 参数提供默认值，通常无需配置
+# ============================================================
+#
+# [ENV] JWT_SIGNING_KEY     — JWT 签名密钥，所有环境均必须显式设置，长度建议至少 32 位
+# [ENV] INTERNAL_SECRET     — 内部服务间验签密钥，所有环境均必须显式设置，长度建议至少 32 位
+# [ENV] PLATFORM_URL        — 平台服务地址，用于内部调用账号验证接口
+
+server:
+  # [BASE] name: "GameLogic"   — 由 LoadBase 参数提供
+  # [BASE] port: 8081          — 由 LoadBase 参数提供
+
+mongo:
+  # uri 为本地基线（容器内连宿主机 MongoDB）；可通过环境变量 MONGO_URI 覆盖
+  # （优先级：环境变量 > 配置文件 > 代码默认值，与 .env.local.example 对应）
+  uri: ""
+  # [BASE] database: "logic_db"  — 由 LoadBase 参数提供，可用环境变量 MONGO_DATABASE 全局覆盖
+  connect_timeout: "10s"
+  ping_timeout: "5s"
+  max_pool_size: 100
+  min_pool_size: 10
+  max_idle_time: "60s"
+
+redis:
+  # addr 为本地基线；可通过环境变量 REDIS_ADDR 覆盖（与 .env.local.example 对应）
+  addr: ""
+  # password: ""              — 无密码，生产环境通过 REDIS_PASSWORD 环境变量设置
+  #                              （该键仅支持环境变量方式，与 .env.local.example 对应）
+  # db: 0                     — 默认 DB 0（仅支持环境变量 REDIS_DB 方式）
+  pool_size: 10
+  min_idle_conns: 5
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  ping_timeout: "5s"
+  max_retries: 3
+
+jwt:
+  token_ttl: "24h"
+  issuer: "KeMiLuo"
+
+log:
+  dir: "./logs"
+  # [BASE] filename: "GameLogic"  — 由 LoadBase 参数提供
+  level: "debug"
+  # 单个日志文件大小上限（MB），写满即轮转出 <filename>-<ISO时间戳>.log
+  max_size: 200
+  # 历史日志保留天数，超期自动删除；除「启动后首次写入」与「写满 max_size 轮转」外，
+  # logx 另有每日兜底轮转，保证低流量服务当天的超期日志也会被清理
+  max_age: 7
+  # 历史日志份数上限；0 表示不按份数限制，保留策略只由 max_age 决定
+  max_backups: 0
+  # 是否压缩历史日志。lumberjack 原生语义：轮转时即压缩为 .gz，并非「延迟 N 天再压缩」
+  compress: true
+
+# WebSocket 长连接网关（默认 /ws）。所有键均可省略，省略项沿用 wsx.DefaultConfig()；
+# 也都支持环境变量覆盖，规则为键名去掉分隔点后大写，如 WEBSOCKET_ORIGINS、
+# WEBSOCKET_MAX_CONNECTIONS_PER_PLAYER、WEBSOCKET_WS_PATH。
+websocket:
+  # WebSocket 升级路径（默认 /ws）；修改后需同步调整客户端/接入方 URL。
+  # 注意该路径同时需要加入全局 JWT 跳过白名单，服务启动时会自动联动。
+  ws_path: "/ws"
+  # 升级握手超时
+  handshake_timeout: "10s"
+  # 服务端主动心跳探测间隔；0 表示不开启（默认，由客户端主动心跳维持连接活性）
+  heartbeat_interval: "0s"
+  # 读超时：超过该时长未收到客户端任何消息（含心跳应答）即判定失联断开。
+  # 开启服务端主动心跳（heartbeat_interval > 0）时，须显著大于心跳间隔，
+  # 否则连接建立后会在首次探测前就被判失联（启动校验会拦截）
+  read_wait: "90s"
+  # 单次写入超时
+  write_wait: "10s"
+  # 单连接下行发送缓冲容量（条）；写满即判定客户端消费过慢，断开连接释放背压
+  send_buffer_size: 256
+  # 单玩家最大并发连接数（<=0 不限制）；超限踢除该玩家最早建立的连接
+  max_connections_per_player: 5
+  # 单条上行消息最大字节数
+  max_message_size: 65536
+  # 单连接上行消息速率上限（条/秒，令牌桶匀速补充；<=0 不限流），超限断开
+  max_messages_per_second: 50
+  # 上行限流允许的瞬时突发条数（令牌桶容量，<=0 时取 max_messages_per_second）
+  inbound_burst: 100
+  # 是否启用 permessage-deflate 压缩（需客户端支持）
+  enable_compression: true
+  # 允许的 Origin 白名单，用于防御跨站 WebSocket 劫持（CSWSH）。
+  # "*" 表示放行所有来源（此时底层完全不校验 Origin 头，即防御未启用），
+  # 非本地环境保持 "*" 会在启动时打印告警。有 Web 客户端接入时应收紧为具体域名，例如：
+  #   origins:
+  #     - "https://game.example.com"
+  # 环境变量方式用逗号分隔：WEBSOCKET_ORIGINS="https://a.com,https://b.com"
+  origins: 
+    - "*"
+  # 是否放行不携带 Origin 头的连接（Unity 等原生客户端不发送该头）。
+  # origins 收紧为具体域名时必须保持 true，否则原生客户端会被全部拒绝（启动校验会拦截）
+  allow_empty_origin: true
+  # 底层读/写缓冲大小（字节）
+  read_buffer_size: 1024
+  write_buffer_size: 1024

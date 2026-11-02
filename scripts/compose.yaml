@@ -1,0 +1,114 @@
+# ============================================================
+# 生产部署 compose 文件
+# 用途：同步到服务器 ${SERVER_DIR}/compose.yaml（默认 /data/servers/compose.yaml）
+# 配合 releases/<svc>/<version> + current/<svc> 软链接原子切换发布。
+#   - ./current/<svc> : 指向当前生效版本的软链接，只读挂载为 /app
+#   - ./config        : 生产配置目录（<svc>_prod.yaml + server.env），只读挂载
+#   - /data/logs      : 日志目录（宿主机绝对路径），需要可写，对应 LOG_DIR=/logs
+#   - 时区：所有服务统一 TZ=UTC，保证跨地区宿主机/容器环境下日志与时间格式化口径一致
+# 部署：sudo ./scripts/install.sh 后，用 ./scripts/deploy.sh <svc> <version> 发布
+# ============================================================
+name: game-server
+
+services:
+  platform:
+    image: alpine:3.22
+    # 本地已有镜像则绝不联网拉取，避免网络抖动影响部署
+    pull_policy: if_not_present
+    container_name: game-platform
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      # 只读挂载软链接目录：切换版本只改宿主机软链接，不动容器配置
+      - ./current/platform:/app:ro
+      # 配置目录只读挂载（platform_prod.yaml + server.env）
+      - ./config:/config:ro
+      # 日志目录可写挂载（宿主机 /data/logs，对应 LOG_DIR=/logs）
+      - /data/logs:/logs
+    environment:
+      APP_ENV: prod
+      CONFIG_DIR: /config
+      LOG_DIR: /logs
+      TZ: UTC
+      # 服务间调用走 compose 内部网络（服务名），不依赖宿主机端口
+      GAMELOGIC_URL: http://gamelogic:8081
+    env_file:
+      - ./config/server.env
+    command: ["/app/platform"]
+    ports:
+      # 仅绑本机回环：本方案统一由宿主机 nginx 反代对外（见 install.sh --with-nginx）。
+      # 若改用云 SLB/ALB 直连后端，需把此处改为 "0.0.0.0:8080:8080"（或内网网卡 IP）后重建容器。
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  gamelogic:
+    image: alpine:3.22
+    # 本地已有镜像则绝不联网拉取，避免网络抖动影响部署
+    pull_policy: if_not_present
+    container_name: game-gamelogic
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./current/gamelogic:/app:ro
+      - ./config:/config:ro
+      - /data/logs:/logs
+    environment:
+      APP_ENV: prod
+      CONFIG_DIR: /config
+      LOG_DIR: /logs
+      TZ: UTC
+      PLATFORM_URL: http://platform:8080
+    env_file:
+      - ./config/server.env
+    command: ["/app/gamelogic"]
+    ports:
+      # 仅绑本机回环：外部网络不可直达，统一经宿主机 nginx 反代（见 install.sh --with-nginx）。
+      # 若改用云 SLB/ALB 直连后端，需把此处改为 "0.0.0.0:8081:8081"（或内网网卡 IP）后重建容器。
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  gmt:
+    image: alpine:3.22
+    # 本地已有镜像则绝不联网拉取，避免网络抖动影响部署
+    pull_policy: if_not_present
+    container_name: game-gmt
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./current/gmt:/app:ro
+      - ./config:/config:ro
+      - /data/logs:/logs
+      # 前端 Vue 打包产物只读挂载：宿主机 /data/web -> 容器 /data/web，需与 GMT_WEB_DIST 一致
+      - /data/web:/data/web:ro
+    environment:
+      APP_ENV: prod
+      CONFIG_DIR: /config
+      LOG_DIR: /logs
+      TZ: UTC
+      PLATFORM_URL: http://platform:8080
+      GAMELOGIC_URL: http://gamelogic:8081
+      # Vue 前端静态托管目录（容器内路径，须与上方 volume 的容器侧路径一致）
+      GMT_WEB_DIST: /data/web
+    env_file:
+      - ./config/server.env
+    command: ["/app/gmt"]
+    ports:
+      # 仅绑本机回环：管理后台切勿裸奔公网，统一经宿主机 nginx 反代 + 来源白名单（见 install.sh --with-nginx）。
+      # 若改用云 SLB/ALB 直连后端，需把此处改为 "0.0.0.0:8082:8082"（或内网网卡 IP）后重建容器，并务必限制来源。
+      - "127.0.0.1:8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

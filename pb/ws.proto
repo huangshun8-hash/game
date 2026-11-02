@@ -1,0 +1,85 @@
+syntax = "proto3";
+package cspb;
+option go_package = "kemiluo/pb/cspb";
+option csharp_namespace = "Cspb";
+
+import "pb/def.proto";
+
+// WebSocket 消息帧类型
+enum WsMsgType {
+  // WsMsgTypeNone 未指定/非法类型
+  WsMsgTypeNone = 0;
+  // WsMsgTypeHeartbeat 心跳请求（客户端或服务端发起探测）
+  WsMsgTypeHeartbeat = 1;
+  // WsMsgTypeHeartbeatAck 心跳应答
+  WsMsgTypeHeartbeatAck = 2;
+  // WsMsgTypeHandshake 连接建立成功后服务端下发的握手帧（负载见 WsHandshakeInfo）
+  WsMsgTypeHandshake = 3;
+  // WsMsgTypePush 服务端主动下发的业务推送帧
+  WsMsgTypePush = 4;
+  // WsMsgTypeError 错误通知帧
+  WsMsgTypeError = 5;
+  // WsMsgTypeBusiness 上行业务消息帧（data 为业务负载）
+  WsMsgTypeBusiness = 6;
+}
+
+// WsMessage WebSocket 统一消息帧，所有上下行消息均以此帧承载。
+message WsMessage {
+  // type 消息帧类型
+  WsMsgType type = 1;
+  // data 业务/心跳负载，按 type 进一步解析
+  bytes data = 2;
+  // timestamp 发送方生成时间（Unix 毫秒）
+  int64 timestamp = 3;
+  // bizId 业务消息ID（可选，用于幂等去重）
+  string bizId = 4;
+  // msgId 业务推送消息标识（可选，Push 帧内用于识别 data 的具体业务消息类型）
+  WsMsgId msgId = 5;
+}
+
+// WsHeartbeatReq 心跳探测负载（承载于 WsMessage.data）。
+// 客户端与服务端均可发起探测，故字段语义为「发起方发送时间」而非固定的客户端时间。
+message WsHeartbeatReq {
+  // senderTime 探测发起方的发送时间戳（Unix 毫秒），用于 RTT 计算
+  int64 senderTime = 1;
+}
+
+// WsHeartbeatResp 心跳应答负载（承载于 WsMessage.data）。
+// 服务端应答客户端探测时填充 serverTime；
+// 客户端应答服务端探测时服务端仅刷新活跃时间、不解析该负载，可留空。
+message WsHeartbeatResp {
+  // serverTime 服务端时间戳（Unix 毫秒）
+  int64 serverTime = 1;
+}
+
+// WsHandshakeInfo 握手帧负载（承载于 WsMessage.data）。
+// 连接建立成功后服务端下发该负载，客户端以此作为建连完成标志。
+message WsHandshakeInfo {
+  // playerId 当前连接所属玩家ID
+  int64 playerId = 1;
+  // serverTime 服务端时间戳（Unix 毫秒）
+  int64 serverTime = 2;
+}
+
+// WsErrorInfo 错误帧负载（承载于 WsMessage.data）
+message WsErrorInfo {
+  // code 错误码
+  int32 code = 1;
+  // message 错误描述
+  string message = 2;
+}
+
+// KickedOfflinePush 被顶号下线通知负载（承载于 WsMessage.data，msgId = WsMsgIdKickedOfflinePush）。
+// 同一账号在其它设备登录且设备标识不一致时，服务端先下发该帧告知客户端，随后以 Close 码 4002 断开本连接。
+message KickedOfflinePush {
+  // loginAt 新登录发生时间（Unix 毫秒）
+  int64 loginAt = 1;
+  // platform 新登录端平台标识（如 ios / android）
+  string platform = 2;
+  // deviceName 新登录端设备名称（客户端可能未上报，为空）
+  string deviceName = 3;
+  // ip 新登录端的客户端 IP（配置受信反代时取 X-Forwarded-For 中的真实 IP）
+  string ip = 4;
+  // deviceId 新登录端的设备唯一标识（客户端可能未上报，为空）
+  string deviceId = 5;
+}

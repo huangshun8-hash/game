@@ -1,0 +1,41 @@
+syntax = "proto3";
+package cspb;
+option go_package = "kemiluo/pb/cspb";
+option csharp_namespace = "Cspb";
+
+// TextType 文本内容类型
+enum TextType {
+  // TextTypeNone 纯文本：直接展示原文本
+  TextTypeNone = 0;
+  // TextTypeLc 多语言Key：由客户端根据当前语言环境自行解析展示
+  TextTypeLc = 1;
+}
+
+// RankType 好友排行榜排行维度类型（所有排行榜均在好友范围内，此处定义按何种维度排序）
+enum RankType {
+  // RankTypeUnknown 未知/未指定类型，接口将拒绝处理
+  RankTypeUnknown = 0;
+  // RankTypeLevel 等级排行：按好友的玩家等级排序
+  RankTypeLevel = 1;
+}
+
+// TextContent 支持多语言的文本内容，用于邮件标题/正文等可本地化字段
+message TextContent {
+  // type 文本内容类型
+  TextType type = 1;
+  // text 纯文本内容（None类型）或多语言Key（Lc类型）
+  string text = 2;
+}
+
+
+// WsMsgId 业务推送消息标识（承载于 WsMessage.msgId）。
+// 客户端解析 Push 帧时，依据 msgId 将 data 反序列化为对应的具体业务消息，
+// 与 bizId（幂等去重标识，语义由各业务自定义）相互独立。
+enum WsMsgId {
+  // WsMsgIdNone 未指定/非法标识
+  WsMsgIdNone = 0;
+  // WsMsgIdPaySuccessPush 支付成功推送，data 为 PaySuccessPush
+  WsMsgIdPaySuccessPush = 1;
+  // WsMsgIdKickedOfflinePush 被新登录顶替下线通知，data 为 KickedOfflinePush
+  WsMsgIdKickedOfflinePush = 2;
+}

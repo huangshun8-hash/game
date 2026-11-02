@@ -1,0 +1,726 @@
+syntax = "proto3";
+package cspb;
+option go_package = "kemiluo/pb/cspb";
+option csharp_namespace = "Cspb";
+
+import "pb/def.proto";
+
+// ============================================================
+// HTTP 接口定义
+// @http: HTTP 方法和相对路径
+// @auth: 是否自动附加 Token，并在 Token 失效后自动重登和重放请求
+// ============================================================
+
+// 登录相关接口
+service AuthService {
+  // 游客或第三方 SDK 登录。
+  // @http POST /auth/login
+  // @auth false
+  rpc Login(LoginReq) returns (LoginResp);
+
+  // 账号注销：作废当前登录玩家的登录身份（原玩家数据永久保留，不可再以原身份登录）。
+  // 玩家ID取自认证上下文，无需请求体携带。
+  // @http POST /auth/deactivate
+  // @auth true
+  rpc Deactivate(DeactivateReq) returns (DeactivateResp);
+}
+
+// 玩家存档接口
+service SaveService {
+  // 上传玩家存档。
+  // @http POST /api/save/upload
+  // @auth true
+  rpc Upload(SaveUploadReq) returns (SaveUploadResp);
+
+  // 下载当前登录玩家的存档。
+  // @http POST /api/save/download
+  // @auth true
+  rpc Download(SaveDownloadReq) returns (SaveDownloadResp);
+}
+
+// 邮件接口
+service MailService {
+  // 获取邮件列表（分页）。
+  // @http GET /api/mail/list
+  // @auth true
+  rpc GetMailList(MailListReq) returns (MailListResp);
+
+  // 查看邮件详情并标记已读。
+  // @http POST /api/mail/read
+  // @auth true
+  rpc ReadMail(MailReadReq) returns (MailReadResp);
+
+  // 领取单封邮件附件。
+  // @http POST /api/mail/receive
+  // @auth true
+  rpc ReceiveMail(MailReceiveReq) returns (MailReceiveResp);
+
+  // 一键领取所有邮件附件。
+  // @http POST /api/mail/receiveAll
+  // @auth true
+  rpc ReceiveAllMails(MailReceiveAllReq) returns (MailReceiveAllResp);
+
+  // 清理已读邮件。
+  // @http POST /api/mail/delete
+  // @auth true
+  rpc DeleteReadMails(MailDeleteReq) returns (MailDeleteResp);
+}
+
+// 服务器时间接口
+service ServerTimeService {
+  // 获取服务器当前时间。
+  // @http GET /api/serverTime
+  // @auth false
+  rpc GetServerTime(ServerTimeReq) returns (ServerTimeResp);
+}
+
+// 内购接口
+service IAPService {
+  // 创建内购订单。
+  // @http POST /api/iap/order
+  // @auth true
+  rpc CreateOrder(CreateOrderReq) returns (CreateOrderResp);
+
+  // 领取内购奖励。
+  // @http POST /api/iap/claim
+  // @auth true
+  rpc ClaimReward(ClaimRewardReq) returns (ClaimRewardResp);
+
+  // 查询已支付待领取的订单列表。
+  // @http GET /api/iap/orders/paid
+  // @auth true
+  rpc ListPaidOrders(ListPaidOrdersReq) returns (ListPaidOrdersResp);
+
+  // 查询单个订单状态。
+  // @http GET /api/iap/order/status
+  // @auth true
+  rpc GetOrderStatus(GetOrderStatusReq) returns (GetOrderStatusResp);
+
+  // 查询玩家匹配的用户标签。
+  // @http POST /api/iap/userTags
+  // @auth true
+  rpc UserTags(UserTagsReq) returns (UserTagsResp);
+}
+
+// 好友接口
+service FriendService {
+  // 发送好友申请。
+  // @http POST /api/friend/apply
+  // @auth true
+  rpc Apply(FriendApplyReq) returns (FriendApplyResp);
+
+  // 同意/拒绝好友申请。
+  // @http POST /api/friend/apply/handle
+  // @auth true
+  rpc HandleApply(FriendApplyHandleReq) returns (FriendApplyHandleResp);
+
+  // 撤销我发出的申请。
+  // @http POST /api/friend/apply/cancel
+  // @auth true
+  rpc CancelApply(FriendApplyCancelReq) returns (FriendApplyCancelResp);
+
+  // 收到的申请列表。
+  // @http GET /api/friend/apply/in
+  // @auth true
+  rpc ApplyIn(FriendApplyListReq) returns (FriendApplyListResp);
+
+  // 发出的申请列表。
+  // @http GET /api/friend/apply/out
+  // @auth true
+  rpc ApplyOut(FriendApplyListReq) returns (FriendApplyListResp);
+
+  // 好友列表。
+  // @http GET /api/friend/list
+  // @auth true
+  rpc FriendList(FriendListReq) returns (FriendListResp);
+
+  // 好友排行榜（所有排行均在好友范围内，排行维度由 type 指定，当前支持等级排行；
+  // 排行按分数倒序、同级按玩家ID升序，名次按位置连续编号，包含本人；
+  // 可选 friends 传入额外好友账号，服务端解析后并入排行候选）。
+  // @http POST /api/friend/rank
+  // @auth true
+  rpc FriendRank(FriendRankReq) returns (FriendRankResp);
+
+  // 删除好友。
+  // @http POST /api/friend/delete
+  // @auth true
+  rpc DeleteFriend(FriendDeleteReq) returns (FriendDeleteResp);
+}
+
+// 玩家查询接口
+service PlayerService {
+  // 按玩家ID或邀请码查询玩家基本信息（玩家ID、昵称、等级）。
+  // @http POST /api/player/query
+  // @auth true
+  rpc Query(PlayerQueryReq) returns (PlayerQueryResp);
+}
+
+// ============================================================
+// 通用结构
+// ============================================================
+
+// 通用错误响应，仅含 code 和 message 两个字段。
+// tag 编号与所有 *Resp 消息的前两个字段保持一致，
+// 客户端可用任意具体 Resp 类型解析此消息。
+message ErrorResp {
+  int32  code    = 1; // 业务错误码，非0表示失败
+  string message = 2; // 错误描述
+}
+
+// 客户端设备信息
+message ClientInfo {
+  string deviceId      = 1; // 设备唯一标识
+  string deviceName    = 2; // 设备名称
+  string brand         = 3; // 设备品牌
+  string model         = 4; // 设备型号
+  string os            = 5; // 操作系统 iOS / Android
+  string osVersion     = 6; // 系统版本
+  string language      = 7; // 系统语言
+  string country       = 8; // 国家/地区
+  string timezone      = 9; // 时区
+  string network       = 10; // 网络类型
+  int32  screenWidth   = 11; // 屏幕宽度（像素）
+  int32  screenHeight  = 12; // 屏幕高度（像素）
+  string clientVersion = 13; // 客户端版本号
+  string bundleVersion = 14; // 构建版本号
+  string channel       = 15; // 渠道
+  string sdkVersion    = 16; // SDK 版本
+  string packageName   = 17; // 包名
+  string installId     = 18; // 安装标识
+  bool   isEmulator    = 19; // 是否模拟器
+}
+
+// 道具奖励
+message Reward {
+  string itemId = 1; // 道具ID
+  int64  count  = 2; // 数量
+}
+
+// ============================================================
+// 登录接口 POST /auth/login
+// ============================================================
+
+// Yre三方数据
+message ThirdYre {
+  int64  t        = 1; // 时间（Unix毫秒时间戳）
+  string siteCode = 2; // 站点编码
+  string ck       = 3; // 校验码
+  string uid      = 4; // 三方用户ID
+}
+
+message LoginReq {
+  string     loginType  = 1; // 登录渠道: guest / apple / google 等
+  string     platform   = 2; // 客户端平台: ios / android
+  string     uuid       = 3; // 游客登录必填，客户端生成的UUID
+  string     authToken  = 4; // 三方登录凭证（可选），部分渠道无需服务端验证
+  ClientInfo clientInfo = 5; // 客户端设备信息（可选）
+  string     account    = 6; // 第三方账号（可选）
+  ThirdYre   thirdYre   = 7; // Yre三方数据（可选）
+}
+
+message LoginResp {
+  int32              code    = 1; // 0=成功，非0为业务错误码
+  string             message = 2; // 结果描述
+  optional LoginData data    = 3; // 业务数据（失败时可能不返回）
+}
+
+message LoginData {
+  string token    = 1; // JWT会话令牌
+  int64  playerId = 2; // 玩家唯一标识
+  bool   isNew    = 4; // 是否新玩家
+  bool   isBound  = 5; // 是否完成游客升级绑定
+  int64  serverId = 6; // 所在服务器ID
+  bytes  saveKey  = 7; // 玩家专属传输加密秘钥（登录下发，用于 protobuf 模式下请求/响应 body 的加解密，32 字节原始二进制，非 base64）
+}
+
+// ============================================================
+// 账号注销 POST /auth/deactivate
+// ============================================================
+
+message DeactivateReq {
+  // 无业务字段：玩家ID一律取自认证上下文（JWT），禁止客户端伪造
+}
+
+message DeactivateResp {
+  int32  code    = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+// ============================================================
+// 上传存档 POST /api/save/upload
+// ============================================================
+
+message SaveUploadReq {
+  int64  baseVersion    = 1; // 客户端修改时基于的版本号，首次上传传0
+  int64  newVersion     = 2; // 期望写入的新版本号，必须 > baseVersion
+  string sign           = 3; // 存档内容签名（SHA256，基于加密后线格式字节的小写十六进制）
+  bytes  content        = 4; // 存档内容（原始二进制：AES-CBC 加密 + gzip 压缩的 protobuf 线格式字节，非 base64），不超过1MB
+  bool   forceOverwrite = 5; // 强制覆盖，跳过CAS冲突检测
+  string key            = 6; // 存档分类标识，区分不同内容（如 "main"、"settings"），必填
+}
+
+message SaveUploadResp {
+  int32                   code    = 1; // 0=成功, 2409=冲突
+  string                  message = 2; // 结果描述
+  optional SaveUploadData data    = 3; // 业务数据（失败时可能不返回）
+}
+
+message SaveUploadData {
+  int64 version        = 1; // 成功时：服务端确认写入的版本号
+  int64 currentVersion = 2; // 冲突时：服务端当前最新版本号
+}
+
+// ============================================================
+// 下载存档 GET /api/save/download
+// ============================================================
+
+message SaveDownloadReq {
+  repeated string keys = 1; // 存档分类标识列表，批量指定要下载的 key；不可为空
+}
+
+message SaveDownloadResp {
+  int32                     code    = 1; // 0=成功
+  string                    message = 2; // 结果描述
+  optional SaveDownloadData data    = 3; // 业务数据（失败时可能不返回）
+}
+
+message SaveDownloadData {
+  repeated SaveDownloadItem items = 1; // 各 key 对应的存档，顺序与请求 keys 一致；若某 key 无存档则 version=0
+}
+
+message SaveDownloadItem {
+  string key     = 1; // 存档分类标识
+  int64  version = 2; // 当前版本号，0表示无存档
+  string sign    = 3; // 存档内容签名
+  bytes  content = 4; // 存档内容（原始二进制：AES-CBC 加密 + gzip 压缩的 protobuf 线格式字节），无存档时为空
+}
+
+// ============================================================
+// 邮件列表 GET /api/mail/list
+// ============================================================
+
+message MailListReq {
+  int64 start = 1; // 起始索引（闭区间，从0开始），默认0
+  int64 end   = 2; // 结束索引（闭区间），默认19，即默认返回前20条
+}
+
+message MailListResp {
+  int32                 code    = 1; // 0=成功
+  string                message = 2; // 结果描述
+  optional MailListData data    = 3; // 业务数据
+}
+
+message MailListData {
+  repeated MailListItem mails = 1; // 邮件摘要列表
+}
+
+message MailListItem {
+  int64       mailId     = 1; // 邮件唯一标识
+  TextContent title      = 2; // 邮件标题
+  string      sender     = 3; // 发送者名称
+  bool        hasReward  = 4; // 是否携带附件
+  bool        isRead     = 5; // 是否已读
+  bool        isRewarded = 6; // 附件是否已领取
+  int64       createTime = 7; // 创建时间戳（Unix毫秒）
+  int64       expireTime = 8; // 过期时间戳（Unix毫秒），0表示永不过期
+}
+
+// ============================================================
+// 查看邮件 POST /api/mail/read
+// ============================================================
+
+message MailReadReq {
+  int64 mailId = 1; // 要查看的邮件ID
+}
+
+message MailReadResp {
+  int32                   code    = 1; // 0=成功
+  string                  message = 2; // 结果描述
+  optional MailDetailData data    = 3; // 业务数据
+}
+
+message MailDetailData {
+  int64           mailId     = 1; // 邮件唯一标识
+  TextContent     title      = 2; // 邮件标题
+  TextContent     content    = 3; // 邮件正文
+  string          sender     = 4; // 发送者名称
+  repeated Reward rewards    = 5; // 附件奖励列表
+  bool            isRead     = 6; // 是否已读
+  bool            isRewarded = 7; // 附件是否已领取
+  int64           createTime = 8; // 创建时间戳（Unix毫秒）
+  int64           expireTime = 9; // 过期时间戳（Unix毫秒）
+}
+
+// ============================================================
+// 领取附件 POST /api/mail/receive
+// ============================================================
+
+message MailReceiveReq {
+  int64 mailId = 1; // 要领取附件的邮件ID
+}
+
+message MailReceiveResp {
+  int32                    code    = 1; // 0=成功
+  string                   message = 2; // 结果描述
+  optional MailReceiveData data    = 3; // 业务数据
+}
+
+message MailReceiveData {
+  repeated Reward rewards = 1; // 本次实际发放的奖励列表
+}
+
+// ============================================================
+// 一键领取 POST /api/mail/receiveAll
+// ============================================================
+
+message MailReceiveAllReq {
+  // 无请求参数，玩家身份由Token解析
+}
+
+message MailReceiveAllResp {
+  int32                       code    = 1; // 0=成功
+  string                      message = 2; // 结果描述
+  optional MailReceiveAllData data    = 3; // 业务数据
+}
+
+message MailReceiveAllData {
+  repeated Reward rewards = 1; // 本次合并发放的全部奖励列表
+  int32           count   = 2; // 本次成功领取的邮件数量
+}
+
+// ============================================================
+// 清理邮件 POST /api/mail/delete
+// ============================================================
+
+message MailDeleteReq {
+  // 无请求参数，由服务端批量清理已读邮件
+}
+
+message MailDeleteResp {
+  int32  code    = 1; // 0=成功
+  string message = 2; // 结果描述
+  int64  deleted = 3; // 本次删除的邮件数量
+}
+
+// ============================================================
+// 创建内购订单 POST /api/iap/order
+// ============================================================
+
+message CreateOrderReq {
+  string payId    = 1; // 支付商品ID（如 diamond_60）
+  string channel  = 2; // 支付渠道：apple / google
+  string awardTag = 3; // 奖项标识，原样持久化
+  string award    = 4; // 奖励内容，原样持久化
+}
+
+message CreateOrderResp {
+  int32                    code    = 1; // 0=成功
+  string                   message = 2; // 结果描述
+  optional CreateOrderData data    = 3; // 业务数据
+}
+
+message CreateOrderData {
+  string orderId   = 1; // 全局唯一订单号
+  string payId = 2; // 支付商品ID
+  string channel   = 3; // 支付渠道
+  string awardTag  = 4; // 奖项标识（原样回传）
+  string award     = 5; // 奖励内容（原样回传）
+}
+
+// ============================================================
+// 领取内购奖励 POST /api/iap/claim
+// ============================================================
+
+message ClaimRewardReq {
+  string             orderId = 1; // 要领取奖励的订单号
+  map<string, int64> reward  = 2; // 本次客户端领取的奖励内容（服务器仅记录）
+}
+
+message ClaimRewardResp {
+  int32                    code    = 1; // 0=成功
+  string                   message = 2; // 结果描述
+  optional ClaimRewardData data    = 3; // 业务数据
+}
+
+message ClaimRewardData {
+  string orderId = 1; // 订单号
+  string status  = 2; // 当前订单状态（领取成功为 DELIVERED）
+}
+
+// ============================================================
+// 查询待领取订单列表 GET /api/iap/orders/paid
+// ============================================================
+
+message ListPaidOrdersReq {
+  // 无请求参数，玩家身份由Token解析
+}
+
+message ListPaidOrdersResp {
+  int32                       code    = 1; // 0=成功
+  string                      message = 2; // 结果描述
+  optional ListPaidOrdersData data    = 3; // 业务数据
+}
+
+message ListPaidOrdersData {
+  repeated PaidOrderItem orders = 1; // 待领取订单列表
+}
+
+message PaidOrderItem {
+  string orderId   = 1; // 订单号
+  string payId = 2; // 支付商品ID
+  string channel   = 3; // 支付渠道
+  string awardTag  = 4; // 奖项标识
+  int64  paidAt    = 5; // 支付成功时间（Unix毫秒）
+  string award     = 6; // 奖励内容（原样回传）
+}
+
+// ============================================================
+// 查询订单状态 GET /api/iap/order/status
+// ============================================================
+
+message GetOrderStatusReq {
+  string orderId = 1; // 查询的订单号（通过 query string 传入）
+}
+
+message GetOrderStatusResp {
+  int32                       code    = 1; // 0=成功
+  string                      message = 2; // 结果描述
+  optional GetOrderStatusData data    = 3; // 业务数据
+}
+
+message GetOrderStatusData {
+  string orderId   = 1; // 订单号
+  string payId = 2; // 支付商品ID
+  string channel   = 3; // 支付渠道
+  string status    = 4; // 业务状态
+}
+
+// ============================================================
+// 用户标签匹配 POST /api/iap/userTags
+// ============================================================
+
+message UserTagsReq {
+  string enum = 1;  // 礼包/活动枚举值，用于筛选对应分组的配置
+  int32  group = 2; // 用户分组（AB分组）：0 表示未分组；匹配配置表 AbGroup（列表为空时仅命中未分组玩家）
+}
+
+message UserTagsResp {
+  int32                 code    = 1; // 0=成功
+  string                message = 2; // 结果描述
+  optional UserTagsData data    = 3; // 业务数据
+}
+
+message UserTagsData {
+  map<string,string> tags = 1; // 满足条件的 tag 列表
+}
+
+// ============================================================
+// 支付成功推送（服务端主动下发）
+// ============================================================
+
+// PaySuccessPush 支付成功推送负载（承载于 WsMessage.data，type=WsMsgTypePush，
+// bizId=订单号，客户端据此幂等去重）。仅在订单真实流转为 PAID 后下发一次。
+message PaySuccessPush {
+  string orderId   = 1; // 订单号（客户端去重标识）
+  string payId = 2; // 支付商品ID
+  string channel   = 3; // 支付渠道
+  string awardTag  = 4; // 奖项标识
+  int64  paidAt    = 5; // 支付成功时间（Unix毫秒）
+  string award     = 6; // 奖励内容（原样回传）
+}
+
+// ============================================================
+// 获取服务器时间 GET /api/serverTime
+// ============================================================
+
+message ServerTimeReq {
+  // 无请求参数
+}
+
+message ServerTimeResp {
+  int32                   code    = 1; // 0=成功
+  string                  message = 2; // 结果描述
+  optional ServerTimeData data    = 3; // 业务数据
+}
+
+message ServerTimeData {
+  int64 serverTime = 1; // 服务器当前时间戳（Unix毫秒）
+}
+
+// ============================================================
+// 发送好友申请 POST /api/friend/apply
+// ============================================================
+
+message FriendApplyReq {
+  int64 targetUid = 1; // 被申请人玩家ID
+}
+
+message FriendApplyResp {
+  int32  code    = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+// ============================================================
+// 同意/拒绝好友申请 POST /api/friend/apply/handle
+// ============================================================
+
+message FriendApplyHandleReq {
+  int64 applyUid = 1; // 申请人玩家ID
+  bool  accept   = 2; // 处理动作：true=同意 false=拒绝（缺省 false 即拒绝）
+}
+
+message FriendApplyHandleResp {
+  int32                        code    = 1; // 0=成功
+  string                       message = 2; // 结果描述
+  optional FriendApplyHandleData data   = 3; // 业务数据
+}
+
+message FriendApplyHandleData {
+  bool accept = 1; // 实际处理动作：true=已同意 false=已拒绝
+}
+
+// ============================================================
+// 撤销我发出的申请 POST /api/friend/apply/cancel
+// ============================================================
+
+message FriendApplyCancelReq {
+  int64 targetUid = 1; // 被申请人玩家ID
+}
+
+message FriendApplyCancelResp {
+  int32                        code    = 1; // 0=成功
+  string                       message = 2; // 结果描述
+  optional FriendApplyCancelData data   = 3; // 业务数据
+}
+
+message FriendApplyCancelData {
+  int64 targetUid = 1; // 被撤销申请的被申请人玩家ID
+}
+
+// ============================================================
+// 收到的/发出的申请列表 GET /api/friend/apply/in|out
+// ============================================================
+
+message FriendApplyListReq {
+  int32 start = 1; // 起始位置（从 1 开始，闭区间），如 1
+  int32 end   = 2; // 结束位置（闭区间），如 (1,20) 表示查询前 20 条
+}
+
+message FriendApplyListResp {
+  int32                        code    = 1; // 0=成功
+  string                       message = 2; // 结果描述
+  optional FriendApplyListData data    = 3; // 业务数据
+}
+
+message FriendApplyListData {
+  repeated FriendApplyItem items   = 1; // 当前页申请列表
+  bool                     hasMore = 2; // 是否还有更多
+}
+
+message FriendApplyItem {
+  int64  applyUid  = 1; // 申请人玩家ID
+  int64  targetUid = 2; // 被申请人玩家ID
+  string nickname  = 3; // 对方玩家昵称
+  int32  level     = 4; // 对方玩家等级
+  int64  createdAt = 5; // 申请创建时间（Unix毫秒）
+}
+
+// ============================================================
+// 好友列表 GET /api/friend/list
+// ============================================================
+
+message FriendListReq {
+  int32 start = 1; // 起始位置（从 1 开始，闭区间），如 1
+  int32 end   = 2; // 结束位置（闭区间），如 (1,20) 表示查询前 20 条
+}
+
+message FriendListResp {
+  int32             code    = 1; // 0=成功
+  string            message = 2; // 结果描述
+  optional FriendListData data = 3; // 业务数据
+}
+
+message FriendListData {
+  repeated FriendItem items   = 1; // 当前页好友列表（已过滤不存在的用户）
+  bool                hasMore = 2; // 是否还有更多
+}
+
+message FriendItem {
+  int64  friendUid = 1; // 好友玩家ID
+  string nickname  = 2; // 好友昵称
+  int32  level     = 3; // 好友等级
+  int64  createdAt = 4; // 建立好友关系时间（Unix毫秒）
+}
+
+// ============================================================
+// 好友排行榜 POST /api/friend/rank
+// ============================================================
+
+message FriendRankReq {
+  // type 好友排行榜排行维度类型（当前支持等级排行，后续新增排行维度时在此扩展）
+  RankType type = 1;
+  // friends 额外好友的第三方账号（account）列表，可选。
+  // 传入时服务端按 account 批量解析出对应玩家，并并入排行榜候选（与既有好友关系取并集，自动去重）；
+  // 用于把尚未建立好友关系、但需要同榜展示的玩家（如最近同玩）一并纳入排行；
+  // 数量超过 100 时只取前 100 个（不报错）。
+  repeated string friends = 2;
+}
+
+message FriendRankResp {
+  int32                   code    = 1; // 0=成功
+  string                  message = 2; // 结果描述
+  optional FriendRankData data    = 3; // 业务数据（失败时可能不返回）
+}
+
+message FriendRankData {
+  repeated RankItem items = 1; // 排行榜列表（按分数倒序，同级按玩家ID升序）
+  RankItem          self  = 2; // 自己的排名（固定返回，不依赖 items 是否包含本人）
+}
+
+message RankItem {
+  int32  rank      = 1; // 名次（从1开始，按位置连续编号）
+  int64  playerUid = 2; // 玩家ID（可能是本人）
+  string nickname  = 3; // 玩家昵称
+  int32  score     = 4; // 排行分数（等级排行中为玩家等级）
+  string avatar    = 5; // 玩家头像
+}
+
+// ============================================================
+// 删除好友 POST /api/friend/delete
+// ============================================================
+
+message FriendDeleteReq {
+  int64 friendUid = 1; // 好友玩家ID
+}
+
+message FriendDeleteResp {
+  int32                  code    = 1; // 0=成功
+  string                 message = 2; // 结果描述
+  optional FriendDeleteData data  = 3; // 业务数据
+}
+
+message FriendDeleteData {
+  int64 friendUid = 1; // 被删除好友的玩家ID
+}
+
+// ============================================================
+// 玩家查询 POST /api/player/query
+// ============================================================
+
+message PlayerQueryReq {
+  int64  playerId   = 1; // 玩家ID（与 inviteCode 二选一，同时提供时优先使用该字段）
+  string inviteCode = 2; // 邀请码（与 playerId 二选一）
+}
+
+message PlayerQueryResp {
+  int32                 code    = 1; // 0=成功，非0为业务错误码
+  string                message = 2; // 结果描述
+  optional PlayerQueryData data = 3; // 业务数据（失败时可能不返回）
+}
+
+message PlayerQueryData {
+  int64  playerId = 1; // 玩家ID
+  string nickname = 2; // 玩家昵称
+  int32  level    = 3; // 玩家等级
+  string avatar   = 4; // 玩家头像
+}

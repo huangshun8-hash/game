@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+# ============================================================
+# 二进制上传脚本（开发机 / CI 执行）
+#
+# 作用：把本机编译好的服务二进制上传到服务器的
+#   ${SERVER_DIR}/releases/<service>/<version>/<service>
+# 目标版本目录不存在时会先通过 ssh 自动创建（mkdir -p），
+# 再用 scp 传输，最后为二进制加执行权限。
+#
+# 传输优化（默认开启）：
+#   - 先在本地 gzip 压缩再上传，远端 gunzip 解压还原。
+#     Go 静态二进制压缩后通常只剩约 35%（约 2.8 倍压缩），可明显缩短上传时间。
+#     scp 自带的 -C 压缩率偏低，故改用显式 gzip，同时便于做完整性校验。
+#   - 远端先解压到 .tmp 临时文件并校验 sha256，校验通过才替换为正式二进制，
+#     避免传输截断或内容损坏的文件被当成可用版本。
+#   - 本机缺 gzip、远端缺 gunzip、或显式传 --no-compress 时，自动回退为直接 scp。
+#
+# 用法：
+#   ./scripts/upload.sh <service> <version> [--binary <path>] [--no-compress]
+#   示例：./scripts/upload.sh gamelogic 20260821_001
+#         ./scripts/upload.sh gamelogic 20260821_001 --binary dist/gamelogic
+#         ./scripts/upload.sh gamelogic 20260821_001 --no-compress
+#
+#   service       : platform | gamelogic | gmt
+#   version       : 版本号，格式 YYYYMMDD_序号（如 20260821_001）
+#   --binary      : 可选。本地二进制路径，默认取 dist/<service>
+#   --no-compress : 可选。跳过压缩，直接上传原始二进制
+#
+# 环境变量（均可选，脚本已内置默认值）：
+#   SSH_HOST   : 服务器地址，格式 user@ip（默认见下方 SSH_HOST，可用环境变量临时覆盖）
+#   SSH_PORT   : ssh 端口（默认 22）
+#   SERVER_DIR : 服务器部署根目录（默认 /data/servers）
+#   DIST_DIR   : 本机产物目录（默认 dist）
+#   COMPRESS   : 是否压缩上传，1=是（默认）/ 0=否
+#   GZIP_LEVEL : gzip 压缩级别 1-9（默认 6；1 最快、9 压缩率最高）
+# ============================================================
+
+set -euo pipefail
+
+# ---- 目标服务器地址（写死，按需修改）----
+# 若需临时上传到其他机器，可用环境变量覆盖：SSH_HOST=root@其他IP ./scripts/upload.sh ...
+SSH_HOST="${SSH_HOST:-ubuntu@1.2.3.4}"
+
+# ---- 默认配置 ----
+SSH_PORT="${SSH_PORT:-22}"
+SERVER_DIR="${SERVER_DIR:-/data/servers}"
+DIST_DIR="${DIST_DIR:-dist}"
+# 压缩上传开关与压缩级别（可用环境变量覆盖，或用命令行 --no-compress 关闭）
+COMPRESS="${COMPRESS:-1}"
+GZIP_LEVEL="${GZIP_LEVEL:-6}"
+
+# 允许的服务名
+VALID_SERVICES=("platform" "gamelogic" "gmt")
+# 版本号格式：YYYYMMDD_序号（至少 3 位序号）
+VERSION_REGEX='^[0-9]{8}_[0-9]{3,}$'
+
+# ---- 工具函数 ----
+# 字节数格式化为人类可读文本（如 30.5MB）；入参为字节数
+format_bytes() {
+  awk -v bytes="$1" 'BEGIN {
+    split("B KB MB GB TB", unit, " ")
+    idx = 1
+    while (bytes >= 1024 && idx < 5) { bytes /= 1024; idx++ }
+    fmt = (idx == 1) ? "%.0f%s" : "%.1f%s"
+    printf fmt, bytes, unit[idx]
+  }'
+}
+
+# 计算文件 sha256，兼容 Linux sha256sum / macOS shasum；入参为文件路径，输出十六进制摘要
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    echo "[ERROR] 未找到 sha256sum/shasum，请安装 coreutils" >&2
+    return 1
+  fi
+}
+
+# ---- 本地临时压缩包清理：正常结束与异常退出均生效 ----
+TMP_GZ=""
+cleanup() {
+  if [[ -n "${TMP_GZ}" && -f "${TMP_GZ}" ]]; then
+    rm -f "${TMP_GZ}"
+  fi
+}
+trap cleanup EXIT
+
+# 校验压缩级别取值范围
+if [[ ! "${GZIP_LEVEL}" =~ ^[1-9]$ ]]; then
+  echo "[ERROR] 非法 GZIP_LEVEL: ${GZIP_LEVEL}（要求 1-9）" >&2
+  exit 1
+fi
+
+# ---- 解析命令行参数 ----
+if [[ $# -lt 2 ]]; then
+  echo "用法: $0 <service> <version> [--binary <path>] [--no-compress]" >&2
+  echo "" >&2
+  echo "示例: $0 gamelogic 20260821_001" >&2
+  echo "      $0 gamelogic 20260821_001 --binary dist/gamelogic" >&2
+  echo "      $0 gamelogic 20260821_001 --no-compress" >&2
+  exit 1
+fi
+SVC="$1"
+VERSION="$2"
+shift 2
+
+BINARY_SRC=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --binary)
+      BINARY_SRC="${2:-}"
+      shift 2
+      ;;
+    --no-compress)
+      COMPRESS="0"
+      shift
+      ;;
+    *)
+      echo "[ERROR] 未知参数: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# 未显式指定二进制路径时，默认取 dist/<service>
+if [[ -z "${BINARY_SRC}" ]]; then
+  BINARY_SRC="${DIST_DIR}/${SVC}"
+fi
+
+# ---- 基础校验 ----
+# 校验服务名合法
+isValidSvc="0"
+for s in "${VALID_SERVICES[@]}"; do
+  if [[ "${SVC}" == "${s}" ]]; then
+    isValidSvc="1"
+    break
+  fi
+done
+if [[ "${isValidSvc}" != "1" ]]; then
+  echo "[ERROR] 未知服务: ${SVC}（可选：platform/gamelogic/gmt）" >&2
+  exit 1
+fi
+# 校验版本号格式
+if [[ ! "${VERSION}" =~ ${VERSION_REGEX} ]]; then
+  echo "[ERROR] 非法版本号: ${VERSION}（要求格式 YYYYMMDD_序号，如 20260821_001）" >&2
+  exit 1
+fi
+# 校验本地二进制存在
+if [[ ! -f "${BINARY_SRC}" ]]; then
+  echo "[ERROR] 本地二进制不存在: ${BINARY_SRC}" >&2
+  exit 1
+fi
+
+# ---- 目标路径 ----
+release_dir="${SERVER_DIR}/releases/${SVC}/${VERSION}"
+remote_binary="${release_dir}/${SVC}"
+
+echo "[INFO] 服务: ${SVC}"
+echo "[INFO] 版本: ${VERSION}"
+echo "[INFO] 本地二进制: ${BINARY_SRC}"
+echo "[INFO] 目标: ${SSH_HOST}:${remote_binary}"
+
+# ---- 目标版本目录不存在则自动创建 ----
+echo "[INFO] 确保远程目录存在: ${release_dir}"
+ssh -p "${SSH_PORT}" "${SSH_HOST}" "mkdir -p '${release_dir}'"
+
+# ---- 决定是否启用压缩上传 ----
+# 压缩需要两端都有 gzip 工具，任一缺失即回退为直接 scp，保证脚本始终可用
+USE_COMPRESS="${COMPRESS}"
+if [[ "${USE_COMPRESS}" == "1" ]]; then
+  if ! command -v gzip >/dev/null 2>&1; then
+    echo "[WARN] 本机未找到 gzip，回退为不压缩上传" >&2
+    USE_COMPRESS="0"
+  elif ! ssh -p "${SSH_PORT}" "${SSH_HOST}" "command -v gunzip >/dev/null 2>&1"; then
+    echo "[WARN] 远端未找到 gunzip，回退为不压缩上传" >&2
+    USE_COMPRESS="0"
+  fi
+fi
+
+if [[ "${USE_COMPRESS}" == "1" ]]; then
+  # ---- 压缩上传：本地 gzip -> scp -> 远端解压校验 ----
+  BINARY_SIZE="$(wc -c < "${BINARY_SRC}" | tr -d '[:space:]')"
+  LOCAL_SHA="$(sha256_of "${BINARY_SRC}")"
+
+  TMP_GZ="$(mktemp "${TMPDIR:-/tmp}/okk_upload.XXXXXX")"
+  gzip -"${GZIP_LEVEL}" -c "${BINARY_SRC}" > "${TMP_GZ}"
+  GZ_SIZE="$(wc -c < "${TMP_GZ}" | tr -d '[:space:]')"
+  echo "[INFO] 压缩完成(gzip -${GZIP_LEVEL}): $(format_bytes "${BINARY_SIZE}") -> $(format_bytes "${GZ_SIZE}")"
+  echo "[INFO] 开始上传（压缩传输）..."
+  # 压缩包先落到 <二进制>.gz，远端解压到 .tmp 校验通过后再替换正式文件
+  remote_gz="${remote_binary}.gz"
+  scp -P "${SSH_PORT}" "${TMP_GZ}" "${SSH_HOST}:${remote_gz}"
+
+  echo "[INFO] 远端解压并校验 sha256..."
+  # 远端脚本：解压 -> 校验 -> 原子替换 -> 加执行权限；EXIT 陷阱确保临时文件与压缩包不留残余
+  ssh -p "${SSH_PORT}" "${SSH_HOST}" "bash -s" <<REMOTE
+set -e
+cleanup_remote() {
+  rm -f '${remote_binary}.tmp' '${remote_gz}'
+}
+trap cleanup_remote EXIT
+gunzip -c '${remote_gz}' > '${remote_binary}.tmp'
+if command -v sha256sum >/dev/null 2>&1; then
+  if ! printf '%s  %s\n' '${LOCAL_SHA}' '${remote_binary}.tmp' | sha256sum -c - >/dev/null 2>&1; then
+    echo "[ERROR] 校验失败：解压结果 sha256 与本地不一致" >&2
+    exit 1
+  fi
+else
+  echo "[WARN] 远端未找到 sha256sum，跳过完整性校验" >&2
+fi
+mv -f '${remote_binary}.tmp' '${remote_binary}'
+chmod +x '${remote_binary}'
+REMOTE
+
+  echo "[OK] 上传完成（压缩传输，已校验）: ${SSH_HOST}:${remote_binary}"
+else
+  # ---- 不压缩上传：直接 scp ----
+  echo "[INFO] 开始上传（未压缩）..."
+  scp -P "${SSH_PORT}" "${BINARY_SRC}" "${SSH_HOST}:${remote_binary}"
+
+  # ---- 加执行权限 ----
+  ssh -p "${SSH_PORT}" "${SSH_HOST}" "chmod +x '${remote_binary}'"
+
+  echo "[OK] 上传完成: ${SSH_HOST}:${remote_binary}"
+fi
+
+echo "[提示] 接下来可在服务器执行发布: cd ${SERVER_DIR} && ./scripts/deploy.sh ${SVC} ${VERSION}"

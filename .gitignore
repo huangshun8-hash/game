@@ -1,0 +1,16 @@
+logs
+dist/
+*.exe
+*.exe~
+.env
+.env.*
+!.env.*.example
+configs/*.secret.yaml
+configs/*.override.yaml
+*.pem
+*.key
+*.crt
+start_*.ps1
+start_*.bat
+upload.sh
+.trae

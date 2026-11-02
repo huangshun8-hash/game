@@ -1,0 +1,74 @@
+syntax = "proto3";
+package cspb;
+option go_package = "kemiluo/pb/cspb";
+option csharp_namespace = "Cspb";
+
+// 玩家存档 schema 目录（SaveApi key 登记表）
+// - Player 字段名 = SaveApi 的 key 字符串（与后端描述符一致）
+// - Player 字段类型 = 该 key 的 content（Gzip 解压后）对应的 PB 类型
+// - 不允许在 Player 内直接定义 lv 等标量；必须用子 message
+// - 专用结构用独立 message（如 Base）；业务数据包用 DefaultData（多字段可共用该类型）
+// - 属性总数只写在 Base；不要为 gold/gem 等标量单独开 SaveApi key
+message Player {
+  Base base = 1; // 基础信息 + 冲突/对账 + 属性总数
+
+  // —— 棋盘 / 订单 ——
+  DefaultData item = 2;
+  DefaultData board = 3;
+  DefaultData cacheItem = 4;
+  DefaultData inventory = 5;
+  DefaultData orderMeta = 6;
+  DefaultData orders = 7;
+
+  // —— 商店 / 地图 ——
+  DefaultData shop = 8;
+  DefaultData shopItem = 9;
+  DefaultData slot = 10;
+  DefaultData extra_skin = 11;
+
+  // —— 活动 / 礼包 / Buff ——
+  DefaultData activity_data = 12;
+  DefaultData wedding_day = 13;
+  DefaultData bundle = 14;
+  DefaultData bundle_meta = 15;
+  DefaultData buffproperty = 16;
+  DefaultData buffproperty_meta = 17;
+
+  // —— 养成 / 系统 ——
+  DefaultData mainTask = 18;
+  DefaultData itemUnlock = 19;
+  DefaultData tutorial = 20;
+  DefaultData misc = 21;
+  DefaultData ad_status = 22;
+  DefaultData profile = 23;
+  DefaultData character_intimacy = 24;
+  DefaultData return_user = 25;
+
+  // EnergyModel 表（恢复计时等）；与 Base.energy 标量不同
+  DefaultData energy = 26;
+
+  // 拼写与旧 Lua 一致
+  DefaultData pakcet_progress = 27;
+}
+
+// 玩家基础信息；存档 key = Player 字段名 base
+message Base {
+  int32  lv = 1; // 玩家等级
+  string nickname = 2; // 玩家昵称
+  string avatar = 3; // 玩家头像
+  string avatarFrame = 4; // 玩家头像框
+  int64  exp = 5; // 经验总数
+  // 冲突展示 / Reconcile（只增不删）
+  int32  gold = 6; // Coins 总数
+  int32  gem = 7; // Gems 总数
+  string currentTask = 8; // 主线任务 key，如 1_1
+  int64  syncTime = 9; // 对账 + 冲突 Timestamp 推导
+  string installationId = 10; // 同设备判断
+  int64  playerId = 11;
+  int32  energy = 12; // 体力总数（≠ DefaultData key energy）
+}
+
+// 业务数据包 content 类型（Player 上多个字段共用）
+message DefaultData {
+  string data = 1; // 业务 JSON / ToUploadArr JSON 等字符串载荷
+}

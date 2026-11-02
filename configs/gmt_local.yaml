@@ -1,0 +1,63 @@
+# ============================================================
+# GMT 管理后台服务 - 本地开发配置
+# 优先级: 环境变量 > 此文件 > 代码默认值
+# ============================================================
+# [ENV] 标记 = 生产环境必须通过环境变量传入，禁止写入配置文件
+# [BASE] 标记 = 由 LoadBase 参数提供默认值，通常无需配置
+# ============================================================
+#
+# [ENV] JWT_SIGNING_KEY            — JWT 签名密钥，所有环境均必须显式设置，长度建议至少 32 位
+# [ENV] INTERNAL_SECRET            — 内部服务间验签密钥，所有环境均必须显式设置，长度建议至少 32 位
+# [ENV] PLATFORM_URL               — Platform 服务地址
+# [ENV] GAMELOGIC_URL              — GameLogic 服务地址
+# [ENV] GMT_BOOTSTRAP_ADMIN_*      — 仅首次初始化超管时显式提供，未设置则不会自动创建超管
+# [ENV] GMT_WEB_DIST               — Vue 前端打包后的静态文件目录；未配置则不启用静态托管
+# [ENV] GMT_WEB_PROXY_TARGET       — 可选：后台 API 反向代理目标地址；为空时 /api 由同端口 GMT 处理
+
+server:
+  # [BASE] name: "GMT"
+  # [BASE] port: 8082
+
+mongo:
+  # uri 为本地基线（容器内连宿主机 MongoDB）；可通过环境变量 MONGO_URI 覆盖
+  # （优先级：环境变量 > 配置文件 > 代码默认值，与 .env.local.example 对应）
+  uri: ""
+  # [BASE] database: "gmt_db"  — 由 LoadBase 参数提供，可用环境变量 MONGO_DATABASE 全局覆盖
+  connect_timeout: "10s"
+  ping_timeout: "5s"
+  max_pool_size: 50
+  min_pool_size: 5
+  max_idle_time: "60s"
+
+redis:
+  # addr 为本地基线；可通过环境变量 REDIS_ADDR 覆盖（与 .env.local.example 对应）
+  addr: ""
+  # password: ""              — 无密码，生产环境通过 REDIS_PASSWORD 环境变量设置
+  #                              （该键仅支持环境变量方式，与 .env.local.example 对应）
+  # db: 0                     — 默认 DB 0（仅支持环境变量 REDIS_DB 方式）
+  pool_size: 10
+  min_idle_conns: 5
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  ping_timeout: "5s"
+  max_retries: 3
+  # 配置验收功能依赖 Redis Pub/Sub（config:review 频道）
+
+jwt:
+  token_ttl: "24h"
+  issuer: "KeMiLuo"
+
+log:
+  dir: "./logs"
+  # [BASE] filename: "GMT"  — 由 LoadBase 参数提供
+  level: "debug"
+  # 单个日志文件大小上限（MB），写满即轮转出 <filename>-<ISO时间戳>.log
+  max_size: 200
+  # 历史日志保留天数，超期自动删除；除「启动后首次写入」与「写满 max_size 轮转」外，
+  # logx 另有每日兜底轮转，保证低流量服务当天的超期日志也会被清理
+  max_age: 7
+  # 历史日志份数上限；0 表示不按份数限制，保留策略只由 max_age 决定
+  max_backups: 0
+  # 是否压缩历史日志。lumberjack 原生语义：轮转时即压缩为 .gz，并非「延迟 N 天再压缩」
+  compress: true

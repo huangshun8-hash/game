@@ -1,0 +1,2 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PATH = 'D:\package\FlyEnv-Data\app\static-go-1.27.3;D:/package/FlyEnv-Data/app/static-go-1.27.3/bin;' + $env:PATH #FlyEnv-ID-UUAdK23pIucf6nBbJpZ0Y22DgK4ar0pI
