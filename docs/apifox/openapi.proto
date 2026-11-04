@@ -1,0 +1,1839 @@
+syntax = "proto3";
+package openapi;
+option go_package = "kemiluo/docs/apifox/openapi";
+
+// 由 docs/apifox/openapi.yaml 转换而来，供 Apifox 按 proto 导入。
+// 与 pb/*.proto 分开存放，不参与 gen_proto.sh。
+// @http 为 HTTP 方法与路径，@auth 表示是否携带 Bearer JWT，@sign 表示内部签名。
+
+import "google/protobuf/struct.proto";
+
+// 公共接口
+service CommonService {
+  // 健康检查
+  // 目录 公共
+  // 服务 GameLogic http://127.0.0.1:8081；Platform http://127.0.0.1:8080；GMT http://127.0.0.1:8082
+  // @http GET /health
+  // @auth false
+  rpc GetHealth(GetHealthReq) returns (GetHealthResp);
+
+  // 版本核对
+  // 目录 公共
+  // 服务 GameLogic http://127.0.0.1:8081；Platform http://127.0.0.1:8080；GMT http://127.0.0.1:8082
+  // @http GET /version
+  // @auth false
+  rpc GetVersion(GetVersionReq) returns (GetVersionResp);
+
+  // 查询订单
+  // 目录 内部/订单
+  // 同一路径在两个服务上含义不同，调试时切换 Server。
+  // GameLogic 8081：业务订单，过滤字段 status。
+  // Platform 8080：渠道支付订单，过滤字段 paymentStatus。
+  // 服务 GameLogic 业务订单 http://127.0.0.1:8081；Platform 支付订单 http://127.0.0.1:8080
+  // @http GET /gmt/iap/orders
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GetGmtIapOrders(GetGmtIapOrdersReq) returns (GetGmtIapOrdersResp);
+}
+
+// GameLogic，默认 http://127.0.0.1:8081
+service GameLogicService {
+  // WebSocket 升级
+  // 目录 GameLogic/长连接
+  // 握手地址 GET /ws?token=JWT。升级成功后帧协议为 cspb.WsMessage。
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /ws
+  // @auth false
+  rpc GetWs(GetWsReq) returns (GetWsResp);
+
+  // 登录
+  // 目录 GameLogic/登录
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /auth/login
+  // @auth false
+  rpc AuthLogin(AuthLoginReq) returns (AuthLoginResp);
+
+  // 注销账号
+  // 目录 GameLogic/登录
+  // 玩家身份取自 JWT。请求体可为空对象。
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /auth/deactivate
+  // @auth true
+  rpc AuthDeactivate(AuthDeactivateReq) returns (AuthDeactivateResp);
+
+  // 服务器时间
+  // 目录 GameLogic/时间
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/serverTime
+  // @auth false
+  rpc GetApiServerTime(GetApiServerTimeReq) returns (GetApiServerTimeResp);
+
+  // 查询玩家
+  // 目录 GameLogic/玩家
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/player/query
+  // @auth true
+  rpc ApiPlayerQuery(ApiPlayerQueryReq) returns (ApiPlayerQueryResp);
+
+  // 读取自定义配置
+  // 目录 GameLogic/自定义配置
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/customConfig
+  // @auth true
+  rpc GetApiCustomConfig(GetApiCustomConfigReq) returns (GetApiCustomConfigResp);
+
+  // 上传存档
+  // 目录 GameLogic/存档
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/save/upload
+  // @auth true
+  rpc ApiSaveUpload(ApiSaveUploadReq) returns (ApiSaveUploadResp);
+
+  // 下载存档
+  // 目录 GameLogic/存档
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/save/download
+  // @auth true
+  rpc ApiSaveDownload(ApiSaveDownloadReq) returns (ApiSaveDownloadResp);
+
+  // GMT 下载存档
+  // 目录 GameLogic/存档内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/save/download
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtSaveDownload(GmtSaveDownloadReq) returns (GmtSaveDownloadResp);
+
+  // GMT 上传存档
+  // 目录 GameLogic/存档内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/save/upload
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtSaveUpload(GmtSaveUploadReq) returns (GmtSaveUploadResp);
+
+  // 邮件列表
+  // 目录 GameLogic/邮件
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/mail/list
+  // @auth true
+  rpc GetApiMailList(GetApiMailListReq) returns (GetApiMailListResp);
+
+  // 阅读邮件
+  // 目录 GameLogic/邮件
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/mail/read
+  // @auth true
+  rpc ApiMailRead(ApiMailReadReq) returns (ApiMailReadResp);
+
+  // 领取单封附件
+  // 目录 GameLogic/邮件
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/mail/receive
+  // @auth true
+  rpc ApiMailReceive(ApiMailReceiveReq) returns (ApiMailReceiveResp);
+
+  // 一键领取附件
+  // 目录 GameLogic/邮件
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/mail/receiveAll
+  // @auth true
+  rpc ApiMailReceiveAll(ApiMailReceiveAllReq) returns (ApiMailReceiveAllResp);
+
+  // 清理已读邮件
+  // 目录 GameLogic/邮件
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/mail/delete
+  // @auth true
+  rpc ApiMailDelete(ApiMailDeleteReq) returns (ApiMailDeleteResp);
+
+  // 发送邮件模板
+  // 目录 GameLogic/邮件内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/mail/send
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtMailSend(GmtMailSendReq) returns (GmtMailSendResp);
+
+  // 邮件模板列表
+  // 目录 GameLogic/邮件内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/mail/list
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtMailList(GmtMailListReq) returns (GmtMailListResp);
+
+  // 撤回邮件模板
+  // 目录 GameLogic/邮件内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/mail/recall
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtMailRecall(GmtMailRecallReq) returns (GmtMailRecallResp);
+
+  // 发送好友申请
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/friend/apply
+  // @auth true
+  rpc ApiFriendApply(ApiFriendApplyReq) returns (ApiFriendApplyResp);
+
+  // 处理好友申请
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/friend/apply/handle
+  // @auth true
+  rpc ApiFriendApplyHandle(ApiFriendApplyHandleReq) returns (ApiFriendApplyHandleResp);
+
+  // 撤销好友申请
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/friend/apply/cancel
+  // @auth true
+  rpc ApiFriendApplyCancel(ApiFriendApplyCancelReq) returns (ApiFriendApplyCancelResp);
+
+  // 收到的申请
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/friend/apply/in
+  // @auth true
+  rpc GetApiFriendApplyIn(GetApiFriendApplyInReq) returns (GetApiFriendApplyInResp);
+
+  // 发出的申请
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/friend/apply/out
+  // @auth true
+  rpc GetApiFriendApplyOut(GetApiFriendApplyOutReq) returns (GetApiFriendApplyOutResp);
+
+  // 好友列表
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/friend/list
+  // @auth true
+  rpc GetApiFriendList(GetApiFriendListReq) returns (GetApiFriendListResp);
+
+  // 好友排行榜
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/friend/rank
+  // @auth true
+  rpc ApiFriendRank(ApiFriendRankReq) returns (ApiFriendRankResp);
+
+  // 删除好友
+  // 目录 GameLogic/好友
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/friend/delete
+  // @auth true
+  rpc ApiFriendDelete(ApiFriendDeleteReq) returns (ApiFriendDeleteResp);
+
+  // 创建业务订单
+  // 目录 GameLogic/内购
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/iap/order
+  // @auth true
+  rpc ApiIapOrder(ApiIapOrderReq) returns (ApiIapOrderResp);
+
+  // 领取内购奖励
+  // 目录 GameLogic/内购
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/iap/claim
+  // @auth true
+  rpc ApiIapClaim(ApiIapClaimReq) returns (ApiIapClaimResp);
+
+  // 待领取订单
+  // 目录 GameLogic/内购
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/iap/orders/paid
+  // @auth true
+  rpc GetApiIapOrdersPaid(GetApiIapOrdersPaidReq) returns (GetApiIapOrdersPaidResp);
+
+  // 查询订单状态
+  // 目录 GameLogic/内购
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /api/iap/order/status
+  // @auth true
+  rpc GetApiIapOrderStatus(GetApiIapOrderStatusReq) returns (GetApiIapOrderStatusResp);
+
+  // 用户标签匹配
+  // 目录 GameLogic/内购
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /api/iap/userTags
+  // @auth true
+  rpc ApiIapUserTags(ApiIapUserTagsReq) returns (ApiIapUserTagsResp);
+
+  // 支付成功通知
+  // 目录 GameLogic/内购内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /internal/iap/notify
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalIapNotify(InternalIapNotifyReq) returns (InternalIapNotifyResp);
+
+  // 玩家充值统计
+  // 目录 GameLogic/内购内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /gmt/iap/payStats
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GetGmtIapPayStats(GetGmtIapPayStatsReq) returns (GetGmtIapPayStatsResp);
+
+  // 批量封禁
+  // 目录 GameLogic/封禁内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/ban/batchBan
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtBanBatchBan(GmtBanBatchBanReq) returns (GmtBanBatchBanResp);
+
+  // 批量解封
+  // 目录 GameLogic/封禁内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /gmt/ban/batchUnban
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtBanBatchUnban(GmtBanBatchUnbanReq) returns (GmtBanBatchUnbanResp);
+
+  // 封禁记录
+  // 目录 GameLogic/封禁内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http GET /gmt/ban/records
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GetGmtBanRecords(GetGmtBanRecordsReq) returns (GetGmtBanRecordsResp);
+
+  // 按账号查角色
+  // 目录 GameLogic/角色内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /internal/role/queryByPassport
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalRoleQueryByPassport(InternalRoleQueryByPassportReq) returns (InternalRoleQueryByPassportResp);
+
+  // 按角色 ID 查角色
+  // 目录 GameLogic/角色内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /internal/role/queryByRoleId
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalRoleQueryByRoleId(InternalRoleQueryByRoleIdReq) returns (InternalRoleQueryByRoleIdResp);
+
+  // 按角色查区服
+  // 目录 GameLogic/角色内部
+  // 服务 GameLogic http://127.0.0.1:8081
+  // @http POST /internal/role/serverList
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalRoleServerList(InternalRoleServerListReq) returns (InternalRoleServerListResp);
+}
+
+// Platform，默认 http://127.0.0.1:8080
+service PlatformService {
+  // 充值回调
+  // 目录 Platform/充值回调
+  // sign = md5(passport + order + key + server + time + agent + money + goodid)。响应是 {code, content}，不是统一信封。
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /pay/notify
+  // @auth false
+  rpc GetPayNotify(GetPayNotifyReq) returns (GetPayNotifyResp);
+
+  // 充值回调
+  // 目录 Platform/充值回调
+  // Content-Type 为 application/x-www-form-urlencoded，字段与 GET 相同。
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /pay/notify
+  // @auth false
+  rpc PayNotify(PayNotifyReq) returns (PayNotifyResp);
+
+  // 单服单角色
+  // 目录 Platform/LunPlay
+  // ck = md5(passport + t + key + serverCode)，t 为秒。
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /lunplay/role/query
+  // @auth false
+  rpc GetLunplayRoleQuery(GetLunplayRoleQueryReq) returns (GetLunplayRoleQueryResp);
+
+  // 单服多角色
+  // 目录 Platform/LunPlay
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /lunplay/role/list
+  // @auth false
+  rpc GetLunplayRoleList(GetLunplayRoleListReq) returns (GetLunplayRoleListResp);
+
+  // 按角色 ID 查询
+  // 目录 Platform/LunPlay
+  // ck = md5(roleid + t + key)。
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /lunplay/role/byRoleId
+  // @auth false
+  rpc GetLunplayRoleByRoleId(GetLunplayRoleByRoleIdReq) returns (GetLunplayRoleByRoleIdResp);
+
+  // 按角色查区服
+  // 目录 Platform/LunPlay
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /lunplay/role/serverList
+  // @auth false
+  rpc GetLunplayRoleServerList(GetLunplayRoleServerListReq) returns (GetLunplayRoleServerListResp);
+
+  // 创建支付单
+  // 目录 Platform/内购内部
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /internal/iap/paymentOrder
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalIapPaymentOrder(InternalIapPaymentOrderReq) returns (InternalIapPaymentOrderResp);
+
+  // 手动补单
+  // 目录 Platform/内购内部
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /gmt/iap/replenish
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtIapReplenish(GmtIapReplenishReq) returns (GmtIapReplenishResp);
+
+  // 账号鉴权
+  // 目录 Platform/账号内部
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /internal/account/auth
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalAccountAuth(InternalAccountAuthReq) returns (InternalAccountAuthResp);
+
+  // 作废账号
+  // 目录 Platform/账号内部
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /internal/account/deactivate
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc InternalAccountDeactivate(InternalAccountDeactivateReq) returns (InternalAccountDeactivateResp);
+
+  // 添加白名单
+  // 目录 Platform/充值白名单
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /gmt/whitelist/add
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtWhitelistAdd(GmtWhitelistAddReq) returns (GmtWhitelistAddResp);
+
+  // 删除白名单
+  // 目录 Platform/充值白名单
+  // 服务 Platform http://127.0.0.1:8080
+  // @http POST /gmt/whitelist/delete
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GmtWhitelistDelete(GmtWhitelistDeleteReq) returns (GmtWhitelistDeleteResp);
+
+  // 白名单列表
+  // 目录 Platform/充值白名单
+  // 服务 Platform http://127.0.0.1:8080
+  // @http GET /gmt/whitelist/list
+  // @auth false
+  // @sign true  请求头 X-Signature / X-Timestamp / X-Nonce
+  rpc GetGmtWhitelistList(GetGmtWhitelistListReq) returns (GetGmtWhitelistListResp);
+}
+
+// GMT，默认 http://127.0.0.1:8082
+service GMTService {
+  // 管理员登录
+  // 目录 GMT/认证
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/admin/login
+  // @auth false
+  rpc ApiAdminLogin(ApiAdminLoginReq) returns (ApiAdminLoginResp);
+
+  // 当前管理员
+  // 目录 GMT/个人资料
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/admin/profile
+  // @auth true
+  rpc GetApiAdminProfile(GetApiAdminProfileReq) returns (GetApiAdminProfileResp);
+
+  // 修改昵称
+  // 目录 GMT/个人资料
+  // 服务 GMT http://127.0.0.1:8082
+  // @http PUT /api/admin/profile
+  // @auth true
+  rpc PutApiAdminProfile(PutApiAdminProfileReq) returns (PutApiAdminProfileResp);
+
+  // 修改密码
+  // 目录 GMT/个人资料
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/admin/changePassword
+  // @auth true
+  rpc ApiAdminChangePassword(ApiAdminChangePasswordReq) returns (ApiAdminChangePasswordResp);
+
+  // 管理员列表
+  // 目录 GMT/管理员
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/admins
+  // @auth true
+  rpc GetApiAdmins(GetApiAdminsReq) returns (GetApiAdminsResp);
+
+  // 新增管理员
+  // 目录 GMT/管理员
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/admins
+  // @auth true
+  rpc ApiAdmins(ApiAdminsReq) returns (ApiAdminsResp);
+
+  // 编辑管理员
+  // 目录 GMT/管理员
+  // 服务 GMT http://127.0.0.1:8082
+  // @http PUT /api/admins/{id}
+  // @auth true
+  rpc PutApiAdminsById(PutApiAdminsByIdReq) returns (PutApiAdminsByIdResp);
+
+  // 禁用管理员
+  // 目录 GMT/管理员
+  // 服务 GMT http://127.0.0.1:8082
+  // @http DELETE /api/admins/{id}
+  // @auth true
+  rpc DeleteApiAdminsById(DeleteApiAdminsByIdReq) returns (DeleteApiAdminsByIdResp);
+
+  // 重置密码
+  // 目录 GMT/管理员
+  // 服务 GMT http://127.0.0.1:8082
+  // @http PUT /api/admins/{id}/password
+  // @auth true
+  rpc PutApiAdminsByIdPassword(PutApiAdminsByIdPasswordReq) returns (PutApiAdminsByIdPasswordResp);
+
+  // 操作日志
+  // 目录 GMT/操作日志
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/operationLogs
+  // @auth true
+  rpc GetApiOperationLogs(GetApiOperationLogsReq) returns (GetApiOperationLogsResp);
+
+  // 渠道支付订单
+  // 目录 GMT/内购
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/gmt/iap/orders
+  // @auth true
+  rpc GetApiGmtIapOrders(GetApiGmtIapOrdersReq) returns (GetApiGmtIapOrdersResp);
+
+  // 业务订单
+  // 目录 GMT/内购
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/gmt/iap/gameOrders
+  // @auth true
+  rpc GetApiGmtIapGameOrders(GetApiGmtIapGameOrdersReq) returns (GetApiGmtIapGameOrdersResp);
+
+  // 玩家充值统计
+  // 目录 GMT/内购
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/gmt/iap/payStats
+  // @auth true
+  rpc GetApiGmtIapPayStats(GetApiGmtIapPayStatsReq) returns (GetApiGmtIapPayStatsResp);
+
+  // 手动补单
+  // 目录 GMT/内购
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/iap/replenish
+  // @auth true
+  rpc ApiGmtIapReplenish(ApiGmtIapReplenishReq) returns (ApiGmtIapReplenishResp);
+
+  // 添加白名单
+  // 目录 GMT/充值白名单
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/whitelist/add
+  // @auth true
+  rpc ApiGmtWhitelistAdd(ApiGmtWhitelistAddReq) returns (ApiGmtWhitelistAddResp);
+
+  // 删除白名单
+  // 目录 GMT/充值白名单
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/whitelist/delete
+  // @auth true
+  rpc ApiGmtWhitelistDelete(ApiGmtWhitelistDeleteReq) returns (ApiGmtWhitelistDeleteResp);
+
+  // 白名单列表
+  // 目录 GMT/充值白名单
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/gmt/whitelist/list
+  // @auth true
+  rpc GetApiGmtWhitelistList(GetApiGmtWhitelistListReq) returns (GetApiGmtWhitelistListResp);
+
+  // 批量封禁
+  // 目录 GMT/封禁
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/ban/batchBan
+  // @auth true
+  rpc ApiGmtBanBatchBan(ApiGmtBanBatchBanReq) returns (ApiGmtBanBatchBanResp);
+
+  // 批量解封
+  // 目录 GMT/封禁
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/ban/batchUnban
+  // @auth true
+  rpc ApiGmtBanBatchUnban(ApiGmtBanBatchUnbanReq) returns (ApiGmtBanBatchUnbanResp);
+
+  // 封禁记录
+  // 目录 GMT/封禁
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/gmt/ban/records
+  // @auth true
+  rpc GetApiGmtBanRecords(GetApiGmtBanRecordsReq) returns (GetApiGmtBanRecordsResp);
+
+  // 发送邮件
+  // 目录 GMT/邮件
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/mail/send
+  // @auth true
+  rpc ApiGmtMailSend(ApiGmtMailSendReq) returns (ApiGmtMailSendResp);
+
+  // 邮件模板列表
+  // 目录 GMT/邮件
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/mail/list
+  // @auth true
+  rpc ApiGmtMailList(ApiGmtMailListReq) returns (ApiGmtMailListResp);
+
+  // 撤回邮件
+  // 目录 GMT/邮件
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/gmt/mail/recall
+  // @auth true
+  rpc ApiGmtMailRecall(ApiGmtMailRecallReq) returns (ApiGmtMailRecallResp);
+
+  // 保存自定义配置
+  // 目录 GMT/自定义配置
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/customConfig/save
+  // @auth true
+  rpc ApiCustomConfigSave(ApiCustomConfigSaveReq) returns (ApiCustomConfigSaveResp);
+
+  // 查询自定义配置
+  // 目录 GMT/自定义配置
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/customConfig/get
+  // @auth true
+  rpc GetApiCustomConfigGet(GetApiCustomConfigGetReq) returns (GetApiCustomConfigGetResp);
+
+  // 配置清单
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/config/manifest
+  // @auth true
+  rpc GetApiConfigManifest(GetApiConfigManifestReq) returns (GetApiConfigManifestResp);
+
+  // 创建发布任务
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/config/releases
+  // @auth true
+  rpc ApiConfigReleases(ApiConfigReleasesReq) returns (ApiConfigReleasesResp);
+
+  // 发布任务列表
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/config/releases
+  // @auth true
+  rpc GetApiConfigReleases(GetApiConfigReleasesReq) returns (GetApiConfigReleasesResp);
+
+  // 发布任务详情
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/config/releases/{id}
+  // @auth true
+  rpc GetApiConfigReleasesById(GetApiConfigReleasesByIdReq) returns (GetApiConfigReleasesByIdResp);
+
+  // 上传配置表
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/config/releases/{id}/upload
+  // @auth true
+  rpc ApiConfigReleasesByIdUpload(ApiConfigReleasesByIdUploadReq) returns (ApiConfigReleasesByIdUploadResp);
+
+  // 关闭发布任务
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/config/releases/{id}/close
+  // @auth true
+  rpc ApiConfigReleasesByIdClose(ApiConfigReleasesByIdCloseReq) returns (ApiConfigReleasesByIdCloseResp);
+
+  // 发布到生产
+  // 目录 GMT/配置发布
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/config/releases/{id}/publish
+  // @auth true
+  rpc ApiConfigReleasesByIdPublish(ApiConfigReleasesByIdPublishReq) returns (ApiConfigReleasesByIdPublishResp);
+
+  // 上传 Proto
+  // 目录 GMT/Proto
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/proto/upload
+  // @auth true
+  rpc ApiProtoUpload(ApiProtoUploadReq) returns (ApiProtoUploadResp);
+
+  // Proto 是否存在
+  // 目录 GMT/Proto
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/proto/exists
+  // @auth true
+  rpc GetApiProtoExists(GetApiProtoExistsReq) returns (GetApiProtoExistsResp);
+
+  // 查询玩家存档分片
+  // 目录 GMT/Proto
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/proto/playerData/get
+  // @auth true
+  rpc GetApiProtoPlayerDataGet(GetApiProtoPlayerDataGetReq) returns (GetApiProtoPlayerDataGetResp);
+
+  // 保存玩家存档分片
+  // 目录 GMT/Proto
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/proto/playerData/save
+  // @auth true
+  rpc ApiProtoPlayerDataSave(ApiProtoPlayerDataSaveReq) returns (ApiProtoPlayerDataSaveResp);
+
+  // 创建文章
+  // 目录 GMT/文章
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/article/create
+  // @auth true
+  rpc ApiArticleCreate(ApiArticleCreateReq) returns (ApiArticleCreateResp);
+
+  // 更新文章
+  // 目录 GMT/文章
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/article/update
+  // @auth true
+  rpc ApiArticleUpdate(ApiArticleUpdateReq) returns (ApiArticleUpdateResp);
+
+  // 删除文章
+  // 目录 GMT/文章
+  // 服务 GMT http://127.0.0.1:8082
+  // @http POST /api/article/delete
+  // @auth true
+  rpc ApiArticleDelete(ApiArticleDeleteReq) returns (ApiArticleDeleteResp);
+
+  // 查询文章
+  // 目录 GMT/文章
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/article/get
+  // @auth true
+  rpc GetApiArticleGet(GetApiArticleGetReq) returns (GetApiArticleGetResp);
+
+  // 文章列表
+  // 目录 GMT/文章
+  // 服务 GMT http://127.0.0.1:8082
+  // @http GET /api/article/list
+  // @auth true
+  rpc GetApiArticleList(GetApiArticleListReq) returns (GetApiArticleListResp);
+}
+
+// ============================================================
+// 消息定义
+// ============================================================
+
+message ClientInfo {
+  string deviceId = 1;
+  string deviceName = 2;
+  string brand = 3;
+  string model = 4;
+  string os = 5;
+  string osVersion = 6;
+  string language = 7;
+  string country = 8;
+  string timezone = 9;
+  string network = 10;
+  int32 screenWidth = 11;
+  int32 screenHeight = 12;
+  string clientVersion = 13;
+  string bundleVersion = 14;
+  string channel = 15;
+  string sdkVersion = 16;
+  string packageName = 17;
+  string installId = 18;
+  bool isEmulator = 19;
+}
+
+message ThirdYre {
+  int64 t = 1; // Unix 毫秒
+  string siteCode = 2;
+  string ck = 3;
+  string uid = 4;
+}
+
+message TextContent {
+  int32 type = 1; // 0 纯文本，1 多语言 Key
+  string text = 2;
+}
+
+message Reward {
+  string itemId = 1;
+  int64 count = 2;
+}
+
+message Article {
+  int64 id = 1;
+  string title = 2;
+  string content = 3;
+  int64 createdAt = 4; // Unix 毫秒
+  int32 status = 5;
+}
+
+message GetHealthReq {
+}
+
+message GetHealthResp {
+  string status = 1;
+  int64 time = 2;
+}
+
+message GetVersionReq {
+}
+
+message GetVersionResp {
+  string service_ = 1 [json_name = "service"];
+  string version = 2;
+  int64 time = 3;
+}
+
+message GetWsReq {
+  string token = 1; // 必填，query
+}
+
+message GetWsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message AuthLoginReq {
+  string loginType = 1; // 必填
+  string platform = 2; // 必填
+  string uuid = 3;
+  string authToken = 4;
+  string account = 5;
+  ThirdYre thirdYre = 6;
+  ClientInfo clientInfo = 7; // 必填
+}
+
+message AuthLoginRespData {
+  string token = 1;
+  int64 playerId = 2;
+  string nickname = 3;
+  string saveKey = 4;
+  bool isNew = 5;
+  bool isBound = 6;
+  int32 serverId = 7;
+}
+
+message AuthLoginResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional AuthLoginRespData data = 3; // 业务数据
+}
+
+message AuthDeactivateReq {
+}
+
+message AuthDeactivateResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiServerTimeReq {
+}
+
+message GetApiServerTimeRespData {
+  int64 serverTime = 1;
+}
+
+message GetApiServerTimeResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional GetApiServerTimeRespData data = 3; // 业务数据
+}
+
+message ApiPlayerQueryReq {
+  int64 playerId = 1;
+  string inviteCode = 2;
+}
+
+message ApiPlayerQueryResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiCustomConfigReq {
+}
+
+message GetApiCustomConfigResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiSaveUploadReq {
+  string key = 1; // 必填
+  int64 baseVersion = 2; // 必填
+  int64 newVersion = 3; // 必填
+  string sign = 4; // 必填
+  string content = 5; // 必填，gzip 后 protobuf 的 base64
+  bool forceOverwrite = 6;
+}
+
+message ApiSaveUploadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiSaveDownloadReq {
+  repeated string keys = 1; // 必填
+}
+
+message ApiSaveDownloadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtSaveDownloadReq {
+  int64 playerId = 1; // 必填
+  repeated string keys = 2;
+}
+
+message GmtSaveDownloadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtSaveUploadReqItemsItem {
+  string key = 1;
+  string content = 2;
+}
+
+message GmtSaveUploadReq {
+  int64 playerId = 1; // 必填
+  repeated GmtSaveUploadReqItemsItem items = 2; // 必填
+}
+
+message GmtSaveUploadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiMailListReq {
+  int64 start = 1; // query
+  int64 end = 2; // query
+}
+
+message GetApiMailListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiMailReadReq {
+  int64 mailId = 1; // 必填
+}
+
+message ApiMailReadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiMailReceiveReq {
+  int64 mailId = 1; // 必填
+}
+
+message ApiMailReceiveResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiMailReceiveAllReq {
+}
+
+message ApiMailReceiveAllResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiMailDeleteReq {
+}
+
+message ApiMailDeleteResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtMailSendReq {
+  string title = 1; // 必填
+  int32 titleType = 2;
+  string content = 3; // 必填
+  int32 contentType = 4;
+  string sender = 5;
+  repeated Reward rewards = 6;
+  int32 targetType = 7; // 必填，0 全服，1 单个，2 列表
+  repeated int64 targetUIDs = 8;
+  int64 startTime = 9;
+  int64 endTime = 10;
+  int64 expireTime = 11;
+  string operatorId = 12;
+}
+
+message GmtMailSendResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtMailListReq {
+  string templateId = 1;
+  int32 targetType = 2;
+  bool recalled = 3;
+  int64 startTime = 4;
+  int64 endTime = 5;
+  int64 page = 6;
+  int64 pageSize = 7;
+  string operatorId = 8;
+}
+
+message GmtMailListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtMailRecallReq {
+  string templateId = 1; // 必填
+  string operatorId = 2;
+}
+
+message GmtMailRecallResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiFriendApplyReq {
+  int64 targetUid = 1; // 必填
+}
+
+message ApiFriendApplyResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiFriendApplyHandleReq {
+  int64 applyUid = 1; // 必填
+  bool accept = 2;
+}
+
+message ApiFriendApplyHandleResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiFriendApplyCancelReq {
+  int64 targetUid = 1; // 必填
+}
+
+message ApiFriendApplyCancelResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiFriendApplyInReq {
+  int32 start = 1; // query
+  int32 end = 2; // query
+}
+
+message GetApiFriendApplyInResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiFriendApplyOutReq {
+  int32 start = 1; // query
+  int32 end = 2; // query
+}
+
+message GetApiFriendApplyOutResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiFriendListReq {
+  int32 start = 1; // query
+  int32 end = 2; // query
+}
+
+message GetApiFriendListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiFriendRankReq {
+  int32 type = 1; // 必填，1 为等级排行
+  repeated string friends = 2;
+}
+
+message ApiFriendRankResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiFriendDeleteReq {
+  int64 friendUid = 1; // 必填
+}
+
+message ApiFriendDeleteResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiIapOrderReq {
+  string payId = 1; // 必填
+  string channel = 2; // 必填
+  string awardTag = 3;
+  string award = 4;
+}
+
+message ApiIapOrderResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiIapClaimReq {
+  string orderId = 1; // 必填
+  map<string, int64> reward = 2;
+}
+
+message ApiIapClaimResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiIapOrdersPaidReq {
+}
+
+message GetApiIapOrdersPaidResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiIapOrderStatusReq {
+  string orderId = 1; // 必填，query
+}
+
+message GetApiIapOrderStatusResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiIapUserTagsReq {
+  string enum_ = 1 [json_name = "enum"];
+  int32 group = 2;
+}
+
+message ApiIapUserTagsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalIapNotifyReq {
+  string notifyId = 1;
+  string source = 2; // channel 或 gmt
+  string orderId = 3;
+  int64 playerId = 4;
+  string productId = 5;
+  string channel = 6;
+  string thirdTransactionId = 7;
+  int64 amount = 8;
+  string currency = 9;
+  string agent = 10;
+  string server = 11;
+  string param = 12;
+}
+
+message InternalIapNotifyResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetGmtIapOrdersReq {
+  string orderId = 1; // query
+  int64 playerId = 2; // query
+  string status = 3; // query，仅 GameLogic
+  string paymentStatus = 4; // query，仅 Platform，WAIT/SUCCESS/FAILED
+  string channel = 5; // query
+  int64 startTime = 6; // query
+  int64 endTime = 7; // query
+  int64 page = 8; // query
+  int64 pageSize = 9; // query
+}
+
+message GetGmtIapOrdersResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetGmtIapPayStatsReq {
+  int64 playerId = 1; // 必填，query
+}
+
+message GetGmtIapPayStatsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtBanBatchBanReq {
+  repeated int64 playerIds = 1; // 必填
+  string reason = 2; // 必填
+  string operatorId = 3;
+}
+
+message GmtBanBatchBanResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtBanBatchUnbanReq {
+  repeated int64 playerIds = 1; // 必填
+  string reason = 2; // 必填
+  string operatorId = 3;
+}
+
+message GmtBanBatchUnbanResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetGmtBanRecordsReq {
+  int64 playerId = 1; // query
+  int64 page = 2; // query
+  int64 pageSize = 3; // query
+}
+
+message GetGmtBanRecordsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalRoleQueryByPassportReq {
+  string openId = 1; // 必填
+  int64 serverCode = 2;
+}
+
+message InternalRoleQueryByPassportResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalRoleQueryByRoleIdReq {
+  int64 roleId = 1; // 必填
+}
+
+message InternalRoleQueryByRoleIdResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalRoleServerListReq {
+  int64 roleId = 1; // 必填
+}
+
+message InternalRoleServerListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetPayNotifyReq {
+  string agent = 1; // 必填，query
+  string server = 2; // 必填，query
+  string passport = 3; // 必填，query
+  string money = 4; // 必填，query
+  string order = 5; // 必填，query
+  string time = 6; // 必填，query，Unix 毫秒
+  string sign = 7; // 必填，query
+  string goodid = 8; // 必填，query
+  string param = 9; // query
+}
+
+message GetPayNotifyResp {
+  int32 code = 1;
+  string content = 2;
+}
+
+message PayNotifyReq {
+  string agent = 1;
+  string server = 2;
+  string passport = 3;
+  string money = 4;
+  string order = 5;
+  string time = 6;
+  string sign = 7;
+  string goodid = 8;
+  string param = 9;
+}
+
+message PayNotifyResp {
+  int32 code = 1;
+  string content = 2;
+}
+
+message GetLunplayRoleQueryReq {
+  int32 serverCode = 1; // 必填，query
+  string passport = 2; // 必填，query
+  string t = 3; // 必填，query
+  string ck = 4; // 必填，query
+}
+
+message GetLunplayRoleQueryResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetLunplayRoleListReq {
+  int32 serverCode = 1; // 必填，query
+  string passport = 2; // 必填，query
+  string t = 3; // 必填，query
+  string ck = 4; // 必填，query
+}
+
+message GetLunplayRoleListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetLunplayRoleByRoleIdReq {
+  string roleid = 1; // 必填，query
+  string t = 2; // 必填，query
+  string ck = 3; // 必填，query
+}
+
+message GetLunplayRoleByRoleIdResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetLunplayRoleServerListReq {
+  string roleid = 1; // 必填，query
+  string t = 2; // 必填，query
+  string ck = 3; // 必填，query
+}
+
+message GetLunplayRoleServerListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalIapPaymentOrderReq {
+  string orderId = 1;
+  int64 playerId = 2;
+  string productId = 3;
+  string channel = 4;
+}
+
+message InternalIapPaymentOrderResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtIapReplenishReq {
+  string orderId = 1; // 必填
+  string thirdTransactionId = 2;
+  string reason = 3;
+  string operatorId = 4;
+}
+
+message GmtIapReplenishResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalAccountAuthReq {
+  string loginType = 1;
+  string platform = 2;
+  string openId = 3;
+  string authToken = 4;
+  string account = 5;
+  ClientInfo clientInfo = 6;
+  ThirdYre thirdYre = 7;
+}
+
+message InternalAccountAuthResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message InternalAccountDeactivateReq {
+  int64 playerId = 1; // 必填
+}
+
+message InternalAccountDeactivateResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtWhitelistAddReq {
+  string account = 1;
+  int64 playerId = 2;
+}
+
+message GmtWhitelistAddResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GmtWhitelistDeleteReq {
+  string openId = 1; // 必填
+}
+
+message GmtWhitelistDeleteResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetGmtWhitelistListReq {
+  int64 page = 1; // query
+  int64 pageSize = 2; // query
+}
+
+message GetGmtWhitelistListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiAdminLoginReq {
+  string username = 1; // 必填
+  string password = 2; // 必填
+}
+
+message ApiAdminLoginRespData {
+  string token = 1;
+  int64 expire = 2;
+}
+
+message ApiAdminLoginResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional ApiAdminLoginRespData data = 3; // 业务数据
+}
+
+message GetApiAdminProfileReq {
+}
+
+message GetApiAdminProfileResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message PutApiAdminProfileReq {
+  string nickname = 1; // 必填
+}
+
+message PutApiAdminProfileResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiAdminChangePasswordReq {
+  string oldPassword = 1; // 必填
+  string newPassword = 2; // 必填
+}
+
+message ApiAdminChangePasswordResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiAdminsReq {
+}
+
+message GetApiAdminsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiAdminsReq {
+  string username = 1; // 必填
+  string nickname = 2;
+  string password = 3; // 必填
+}
+
+message ApiAdminsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message PutApiAdminsByIdReq {
+  string id = 1; // 必填，path
+  string nickname = 2; // 必填
+  int32 status = 3; // 必填，1 正常，0 禁用
+}
+
+message PutApiAdminsByIdResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message DeleteApiAdminsByIdReq {
+  string id = 1; // 必填，path
+}
+
+message DeleteApiAdminsByIdResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message PutApiAdminsByIdPasswordReq {
+  string id = 1; // 必填，path
+  string newPassword = 2; // 必填
+}
+
+message PutApiAdminsByIdPasswordResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiOperationLogsReq {
+  string uid = 1; // query
+  string module = 2; // query
+  string action = 3; // query
+  int64 startTime = 4; // query
+  int64 endTime = 5; // query
+  int64 page = 6; // query
+  int64 pageSize = 7; // query
+}
+
+message GetApiOperationLogsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiGmtIapOrdersReq {
+  string orderId = 1; // query
+  int64 playerId = 2; // query
+  string paymentStatus = 3; // query
+  string channel = 4; // query
+  int64 startTime = 5; // query
+  int64 endTime = 6; // query
+  int64 page = 7; // query
+  int64 pageSize = 8; // query
+}
+
+message GetApiGmtIapOrdersResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiGmtIapGameOrdersReq {
+  string orderId = 1; // query
+  int64 playerId = 2; // query
+  string status = 3; // query
+  string channel = 4; // query
+  int64 startTime = 5; // query
+  int64 endTime = 6; // query
+  int64 page = 7; // query
+  int64 pageSize = 8; // query
+}
+
+message GetApiGmtIapGameOrdersResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiGmtIapPayStatsReq {
+  int64 playerId = 1; // 必填，query
+}
+
+message GetApiGmtIapPayStatsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtIapReplenishReq {
+  string orderId = 1; // 必填
+  string thirdTransactionId = 2;
+  string reason = 3;
+  string operatorId = 4;
+}
+
+message ApiGmtIapReplenishResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtWhitelistAddReq {
+  string account = 1;
+  int64 playerId = 2;
+}
+
+message ApiGmtWhitelistAddResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtWhitelistDeleteReq {
+  string openId = 1; // 必填
+}
+
+message ApiGmtWhitelistDeleteResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiGmtWhitelistListReq {
+  int64 page = 1; // query
+  int64 pageSize = 2; // query
+}
+
+message GetApiGmtWhitelistListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtBanBatchBanReq {
+  repeated int64 playerIds = 1; // 必填
+  string reason = 2; // 必填
+}
+
+message ApiGmtBanBatchBanResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtBanBatchUnbanReq {
+  repeated int64 playerIds = 1; // 必填
+  string reason = 2; // 必填
+}
+
+message ApiGmtBanBatchUnbanResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiGmtBanRecordsReq {
+  int64 playerId = 1; // query
+  int64 page = 2; // query
+  int64 pageSize = 3; // query
+}
+
+message GetApiGmtBanRecordsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtMailSendReq {
+  string title = 1; // 必填
+  int32 titleType = 2;
+  string content = 3; // 必填
+  int32 contentType = 4;
+  string sender = 5;
+  repeated Reward rewards = 6;
+  int32 targetType = 7;
+  repeated int64 targetUIDs = 8;
+  int64 startTime = 9;
+  int64 endTime = 10;
+  int64 expireTime = 11;
+}
+
+message ApiGmtMailSendResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtMailListReq {
+  string templateId = 1;
+  int32 targetType = 2;
+  bool recalled = 3;
+  int64 startTime = 4;
+  int64 endTime = 5;
+  int64 page = 6;
+  int64 pageSize = 7;
+}
+
+message ApiGmtMailListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiGmtMailRecallReq {
+  string templateId = 1; // 必填
+}
+
+message ApiGmtMailRecallResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiCustomConfigSaveReq {
+  string data = 1; // 必填
+}
+
+message ApiCustomConfigSaveResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiCustomConfigGetReq {
+}
+
+message GetApiCustomConfigGetResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiConfigManifestReq {
+}
+
+message GetApiConfigManifestResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiConfigReleasesReq {
+  string description = 1;
+}
+
+message ApiConfigReleasesResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiConfigReleasesReq {
+  int64 page = 1; // query
+  int64 pageSize = 2; // query
+}
+
+message GetApiConfigReleasesResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiConfigReleasesByIdReq {
+  string id = 1; // 必填，path
+}
+
+message GetApiConfigReleasesByIdResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiConfigReleasesByIdUploadReq {
+  string id = 1; // 必填，path
+  string table = 2; // 必填
+  string schemaHash = 3;
+  string dataHash = 4;
+  repeated google.protobuf.Struct schema = 5; // 必填
+  repeated google.protobuf.Struct data = 6; // 必填
+}
+
+message ApiConfigReleasesByIdUploadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiConfigReleasesByIdCloseReq {
+  string id = 1; // 必填，path
+}
+
+message ApiConfigReleasesByIdCloseResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiConfigReleasesByIdPublishReq {
+  string id = 1; // 必填，path
+}
+
+message ApiConfigReleasesByIdPublishResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiProtoUploadReq {
+  string protoName = 1; // 必填
+  bytes file = 2; // 必填
+}
+
+message ApiProtoUploadResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiProtoExistsReq {
+}
+
+message GetApiProtoExistsResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiProtoPlayerDataGetReq {
+  int64 playerId = 1; // 必填，query
+  string messageName = 2; // query
+}
+
+message GetApiProtoPlayerDataGetResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiProtoPlayerDataSaveReqItemsItem {
+  string messageName = 1;
+  string data = 2;
+}
+
+message ApiProtoPlayerDataSaveReq {
+  int64 playerId = 1; // 必填
+  repeated ApiProtoPlayerDataSaveReqItemsItem items = 2; // 必填
+}
+
+message ApiProtoPlayerDataSaveResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message ApiArticleCreateReq {
+  string title = 1; // 必填
+  string content = 2;
+  int32 status = 3; // 必填
+}
+
+message ApiArticleCreateResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional Article data = 3; // 业务数据
+}
+
+message ApiArticleUpdateReq {
+  int64 id = 1; // 必填
+  string title = 2; // 必填
+  string content = 3;
+  int32 status = 4; // 必填
+}
+
+message ApiArticleUpdateResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional Article data = 3; // 业务数据
+}
+
+message ApiArticleDeleteReq {
+  int64 id = 1; // 必填
+}
+
+message ApiArticleDeleteResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}
+
+message GetApiArticleGetReq {
+  int64 id = 1; // 必填，query
+}
+
+message GetApiArticleGetResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+  optional Article data = 3; // 业务数据
+}
+
+message GetApiArticleListReq {
+  int64 page = 1; // query
+  int64 pageSize = 2; // query
+  string title = 3; // query，标题子串，不区分大小写；为空时不过滤
+}
+
+message GetApiArticleListResp {
+  int32 code = 1; // 0=成功，非0为业务错误码
+  string message = 2; // 结果描述
+}

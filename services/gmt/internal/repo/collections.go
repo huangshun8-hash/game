@@ -20,4 +20,11 @@ const (
 	collectionConfigManifest = "config_manifest"
 	// collectionConfigReleases 配置发布任务集合（gconfig_db）
 	collectionConfigReleases = "config_releases"
+
+	// databaseTest 文章业务库。与 gmt_db 共用同一 MongoDB 实例，仅库名不同。
+	databaseTest = "test"
+	// collectionArticle 文章集合（test）
+	collectionArticle = "article"
+	// collectionArticleCounters 文章自增 ID 计数器集合（test）
+	collectionArticleCounters = "counters"
 )

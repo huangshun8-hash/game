@@ -45,6 +45,24 @@ func EnsureIndexes(ctx context.Context, client *mongox.Client) error {
 	})
 }
 
+// EnsureArticleIndexes 确保文章库（test）所需的数据库索引存在。
+// 建索引时 MongoDB 会一并创建 test 库和 article 集合。
+func EnsureArticleIndexes(ctx context.Context, client *mongox.Client) error {
+	return mongox.EnsureIndexesOnDB(ctx, client.DB(databaseTest), []mongox.IndexDef{
+		{
+			Collection: collectionArticle,
+			Keys:       bson.D{{Key: "id", Value: 1}},
+			Unique:     true,
+			Name:       "ukId",
+		},
+		{
+			Collection: collectionArticle,
+			Keys:       bson.D{{Key: "createdAt", Value: -1}},
+			Name:       "idxCreatedAt",
+		},
+	})
+}
+
 // EnsureConfigIndexes 确保游戏配置库（gconfig_db）所需的数据库索引存在
 func EnsureConfigIndexes(ctx context.Context, configClient *mongox.Client) error {
 	return configClient.EnsureIndexes(ctx, []mongox.IndexDef{

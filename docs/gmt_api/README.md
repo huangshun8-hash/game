@@ -19,6 +19,7 @@
 | 自定义配置 | [custom_config.md](custom_config.md) | 保存 / 查询自定义配置 |
 | 邮件管理 | [mail.md](mail.md) | 发送邮件 / 查询模板列表 / 撤回模板 |
 | Proto 动态数据 | [proto_api.md](proto_api.md) | Proto 模板上传 / 模板存在性查询 / 玩家分片数据读写 |
+| 文章 | [article.md](article.md) | 文章新增 / 更新 / 删除 / 查询 |
 
 ---
 
@@ -79,7 +80,7 @@ Authorization: Bearer <token>
 | `3411` | 403 | 账号已禁用 |
 | `3500` | 500 | 服务内部错误 |
 
-> 内购模块另有独立错误码，见 [iap.md](iap.md#内购错误码)；配置模块错误码见 [config.md](config.md)。
+> 内购模块另有独立错误码，见 [iap.md](iap.md#内购错误码)；配置模块错误码见 [config.md](config.md)；文章模块错误码见 [article.md](article.md)。
 
 ---
 

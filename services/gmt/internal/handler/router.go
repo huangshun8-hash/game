@@ -19,6 +19,7 @@ func NewRouters(deps *Deps) []httpx.Router {
 	protoLogic := logic.NewProtoLogic(deps.MongoSvc, deps.AsyncSvc, deps.GameLogicSvc)
 	mailLogic := logic.NewMailLogic(deps.GameLogicSvc, deps.MongoSvc, deps.AsyncSvc)
 	whitelistLogic := logic.NewWhitelistLogic(deps.PlatformSvc, deps.MongoSvc, deps.AsyncSvc)
+	articleLogic := logic.NewArticleLogic(deps.MongoSvc, deps.AsyncSvc)
 
 	return []httpx.Router{
 		NewAuthHandler(authLogic),
@@ -32,5 +33,6 @@ func NewRouters(deps *Deps) []httpx.Router {
 		NewProtoHandler(protoLogic),
 		NewMailHandler(mailLogic),
 		NewWhitelistHandler(whitelistLogic),
+		NewArticleHandler(articleLogic),
 	}
 }

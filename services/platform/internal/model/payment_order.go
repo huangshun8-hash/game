@@ -96,4 +96,6 @@ type PaymentOrder struct {
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	// UpdatedAt 记录更新时间
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
+	//sdkid
+	SdkId string `bson:"sdkId" json:"sdkId"`
 }

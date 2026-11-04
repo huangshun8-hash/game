@@ -304,7 +304,7 @@ okk/
   - `initInfra()`：Mongo/Redis/Async/JWT/httpcli(platform+gamelogic)
   - `initServer()`：创建 `httpx.Server`，默认开启 JWT + TokenStore 校验（跳过 `/health`、`/version` 与 `/api/admin/login`），并对登录/改密/重置密码等接口跳过 body 日志
   - `initServer()` 同时支持托管 Vue 前端打包产物：通过环境变量 `GMT_WEB_DIST` 指定静态目录时，GMT 会在业务路由/JWT 之前挂载静态托管中间件，直接提供后台页面（SPA history 回退）；`GMT_WEB_PROXY_TARGET` 可配置后台 API 反向代理目标（为空时 `/api` 由同端口 GMT 路由处理，实现同源集成）。实现在 `pkg/httpx/static.go`。注意静态资源走的是 HTTP 传输层语义：命中返回真实 MIME 与缓存头，未命中返回真实 `404`，不套用「对外接口统一 200 + code 信封」的业务约定，否则浏览器会因 MIME 不符拒绝加载 ES module
-  - `ensureIndexes()`：用临时连接创建索引；仅在显式提供 `GMT_BOOTSTRAP_ADMIN_*` 环境变量时初始化超管账号
+  - `ensureIndexes()`：用临时连接创建索引（含 `test` 库的 `article` 集合）；仅在显式提供 `GMT_BOOTSTRAP_ADMIN_*` 环境变量时初始化超管账号
   - `registerRoutes()`：注册 handler
 
 **路由聚合与 handler 列表**
@@ -321,6 +321,7 @@ okk/
   - `MailHandler`：邮件管理（对 gamelogic 发起调用，如运营发邮件）
   - `WhitelistHandler`：充值白名单管理（对 platform 发起调用，`/api/gmt/whitelist/add|delete|list`）——添加支持按 `playerId` 或 `account`（openId），平台侧只校验现存账号，**删除仅按账号 openId**，删除为物理删除；被列入白名单的账号下单时直接支付完成（详见 Platform「充值白名单」）
   - `ProtoHandler`：动态 Proto 模板与玩家存档分片管理（`/api/proto/upload`、`/api/proto/exists`、`/api/proto/playerData/get`、`/api/proto/playerData/save`）；上传模板含 `Player` 根消息时，以其直接、非 map 的 message 字段名作为存档 key（如 `base`、`item`、`board`），并自动使用字段引用的 message 类型编码和解析分片数据；查询全部存档分片时，响应 `items` 按存档 key（`messageName`）升序返回
+  - `ArticleHandler`：文章增删改查（`/api/article/create|update|delete|get|list`）。数据写在 MongoDB `test` 库的 `article` 集合，字段为 `id`（自增 int64）、`title`、`content`、`createdAt`（Unix 毫秒）、`status`（0-255）。列表支持可选查询参数 `title`，按标题子串、不区分大小写过滤。服务启动建索引时自动创建该库和集合
 
 **关键 logic（示例入口）**
 
@@ -337,6 +338,7 @@ okk/
   - 管理员：`services/gmt/internal/repo/admin_repo.go`
   - 操作日志：`services/gmt/internal/repo/operation_log_repo.go`
   - 配置发布：`services/gmt/internal/repo/config_repo.go`
+  - 文章：`services/gmt/internal/repo/article_repo.go`（`test.article`，自增 ID 在同库 `counters` 集合）
 
 ## 6. 公共基础库（pkg）
 
@@ -629,7 +631,8 @@ go run ./services/gmt
   - `docs/ws_api.md`（WebSocket 长连接接入文档：连接建立与握手鉴权、消息帧协议 `cspb.WsMessage`、心跳机制、上行业务消息、服务端推送、关闭状态码与客户端处理建议、服务端 `websocket` 配置项）
   - `docs/gmt_api/iap.md`（GMT 内购订单管理接口：渠道支付订单查询、业务订单查询、玩家充值统计查询、手动补单，以及 local/dev 环境模拟补单任务说明）
 - 运营侧/内部接口补充说明：
-  - GMT：`docs/gmt_api/`（按功能模块拆分：认证/个人资料/管理员/操作日志/封禁/内购/配置发布/自定义配置/Proto/邮件，入口 `docs/gmt_api/README.md`）
+  - GMT：`docs/gmt_api/`（按功能模块拆分：认证/个人资料/管理员/操作日志/封禁/内购/配置发布/自定义配置/Proto/邮件/文章，入口 `docs/gmt_api/README.md`）
+  - Apifox 导入文件：`docs/apifox/openapi.yaml`（OpenAPI 3.0）与同内容的 `docs/apifox/openapi.proto`（proto3，`@http` / `@auth` / `@sign` 标注 HTTP 方法、路径和鉴权）。两者都覆盖 GameLogic / Platform / GMT 已注册 HTTP 接口。proto 文件不参与 `gen_proto.sh`。Apifox 可按 OpenAPI 或 proto 导入。
   - Platform（GMT 聚合相关）：`services/platform/internal/handler/GMT_API.md`
 
 ### 11.2 测试

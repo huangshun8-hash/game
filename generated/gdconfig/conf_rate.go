@@ -1,5 +1,5 @@
 // 此文件由 genconfig 自动生成，请勿手动修改。
-// 配置表：Rate（版本 6a83221bc3de9d96a61f268a）
+// 配置表：Rate（版本 6ae85b049f96982d7feda387）
 package gdconfig
 
 import (

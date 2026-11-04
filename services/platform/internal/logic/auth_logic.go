@@ -366,7 +366,6 @@ func (a *AuthLogic) verifyThirdYre(req *dto.AuthReq) error {
 		)
 		return fiber.NewError(fiber.StatusBadRequest, "third party verification failed")
 	}
-
 	if err := a.thirdYreVerifier.Verify(yre); err != nil {
 		// 未配置密钥属服务端配置问题，记 Error 便于告警；其余为请求侧签名/时间问题，记 Warn
 		if errors.Is(err, errThirdYreSecretMissing) {
@@ -386,7 +385,7 @@ func (a *AuthLogic) verifyThirdYre(req *dto.AuthReq) error {
 				zap.Error(err),
 			)
 		}
-		return fiber.NewError(fiber.StatusBadRequest, "third party verification failed")
+		return fiber.NewError(fiber.StatusBadRequest, "third party verification failed11")
 	}
 
 	return nil

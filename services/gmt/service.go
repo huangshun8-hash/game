@@ -153,6 +153,13 @@ func (s *gmtService) ensureIndexes() {
 	}
 	logx.Info("数据库索引创建完成")
 
+	// 文章库（test）索引。与主库共用连接，仅库名不同。
+	if err := repo.EnsureArticleIndexes(ctx, client); err != nil {
+		logx.Warn("创建文章库索引失败", zap.Error(err))
+	} else {
+		logx.Info("文章库索引创建完成")
+	}
+
 	// 配置专用库（gconfig_db）索引
 	configClient, err := mongox.NewClient(ctx, s.cfg.ConfigMongo)
 	if err != nil {

@@ -1,5 +1,5 @@
 // 此文件由 genconfig 自动生成，请勿手动修改。
-// 配置表：IAPProductGlobal（版本 6aa7d09477f855c1ac78a2e0）
+// 配置表：IAPProductGlobal（版本 6ae9bf5d1f4128837ccf59be）
 package gdconfig
 
 import (
